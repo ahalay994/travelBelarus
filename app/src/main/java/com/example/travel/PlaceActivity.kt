@@ -31,6 +31,8 @@ class PlaceActivity : AppCompatActivity() {
         binding = ActivityPlaceBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+//        supportActionBar!!.setDisplayHomeAsUpEnabled(true)
+
         id = intent.getIntExtra(ID, 0)
         place = databaseHandler.viewPlaceById(id)
 

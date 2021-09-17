@@ -22,7 +22,6 @@ import com.example.travel.models.TagsModelClass
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.chip.Chip
-import com.google.android.material.chip.ChipGroup
 import com.google.android.material.slider.RangeSlider
 import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.android.synthetic.main.fragment_window.*
@@ -33,6 +32,8 @@ class MainActivity : AppCompatActivity() {
     var actionbar: ActionBar? = null
     var VIEW_TYPE = 0
 
+    private var mBottomSheetBehavior: BottomSheetBehavior<View?>? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -41,7 +42,14 @@ class MainActivity : AppCompatActivity() {
         if (actionbar !== null) {
             actionbar!!.setHomeAsUpIndicator(R.drawable.ic_baseline_close_24)
         }
-        actionbar!!.setBackgroundDrawable(ColorDrawable(ContextCompat.getColor(this,R.color.purple_500)))
+        actionbar!!.setBackgroundDrawable(
+            ColorDrawable(
+                ContextCompat.getColor(
+                    this,
+                    R.color.purple_500
+                )
+            )
+        )
         //removing the shadow from the action bar
         supportActionBar?.elevation = 0f
 
@@ -51,32 +59,43 @@ class MainActivity : AppCompatActivity() {
 
         getPlaces()
         addListChips()
+
+        submitPlaces()
     }
 
     fun setOnBottomSheetCallbacks(onBottomSheetCallbacks: OnBottomSheetCallbacks) {
         this.listener = onBottomSheetCallbacks
     }
 
-    fun closeBottomSheet() {
-        mBottomSheetBehavior?.state = BottomSheetBehavior.STATE_COLLAPSED
-    }
-
     fun openBottomSheet() {
         mBottomSheetBehavior?.state = BottomSheetBehavior.STATE_EXPANDED
+        if (actionbar !== null) {
+            optionsMenu!!.findItem(R.id.action_configuration).setVisible(true)
+            actionbar!!.setDisplayHomeAsUpEnabled(false)
+        }
     }
 
-    private var mBottomSheetBehavior: BottomSheetBehavior<View?>? = null
+    fun closeBottomSheet() {
+        mBottomSheetBehavior?.state = BottomSheetBehavior.STATE_COLLAPSED
+        if (actionbar !== null) {
+            actionbar!!.setDisplayHomeAsUpEnabled(true)
+            optionsMenu!!.findItem(R.id.action_configuration).setVisible(false)
+        }
+    }
 
+    // Клик по кнопкам в контейнере
     private fun setToggleMenuButtons() {
         materialButtonToggleGroupSort.addOnButtonCheckedListener { _, checkedId, _ ->
             toggleButton(findViewById(checkedId))
         }
     }
 
+    // Изменение ренджбара (стоимости)
     private fun setRangerSlider() {
         lengthSlider.addOnChangeListener { rangeSlider, value, fromUser ->
             // Responds to when slider's value is changed
-            lengthTextView.text = "${rangeSlider.values[0].toInt()} BYN - ${rangeSlider.values[1].toInt()} BYN"
+            lengthTextView.text =
+                "${rangeSlider.values[0].toInt()} BYN - ${rangeSlider.values[1].toInt()} BYN"
             if (rangeSlider.values[1].toInt() == 150) {
                 lengthTextView.text = lengthTextView.text.toString() + "+"
             }
@@ -93,6 +112,7 @@ class MainActivity : AppCompatActivity() {
         })
     }
 
+    // Клик по кнопкам сортировки
     private fun handleCheckedButtonsInSort() {
         when {
             materialButtonToggleGroupSort.checkedButtonIds.contains(R.id.mostPopularButton) -> {
@@ -104,9 +124,11 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // Функция изменения цвета кнопок
     private fun toggleButton(button: MaterialButton) {
         if (button.textColors.defaultColor == ContextCompat.getColor(this, R.color.white)) {
-            button.strokeColor = ColorStateList.valueOf(ContextCompat.getColor(this, R.color.selected_item))
+            button.strokeColor =
+                ColorStateList.valueOf(ContextCompat.getColor(this, R.color.selected_item))
             button.setTextColor(ContextCompat.getColor(this, R.color.selected_item))
         } else {
             button.strokeColor = ColorStateList.valueOf(ContextCompat.getColor(this, R.color.white))
@@ -114,6 +136,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // Выпадающая шторка
     private fun configureBackdrop() {
         val fragment = supportFragmentManager.findFragmentById(R.id.filter_fragment)
 
@@ -162,44 +185,37 @@ class MainActivity : AppCompatActivity() {
                 true
             }
             R.id.action_configuration -> {
-//                val configActivity = Intent(this, ConfigActivity::class.java)
-//                startActivity(configActivity)
-                actionbar!!.setDisplayHomeAsUpEnabled(true)
-                item.setVisible(false)
                 closeBottomSheet()
+                true
+            }
+            android.R.id.home -> {
+                openBottomSheet()
                 true
             }
             R.id.action_exit -> {
                 Toast.makeText(applicationContext, "click on exit", Toast.LENGTH_LONG).show()
                 return true
             }
-            android.R.id.home -> {
-//                Toast.makeText(this, "Home", Toast.LENGTH_LONG).show()
-                optionsMenu!!.findItem(R.id.action_configuration).setVisible(true)
-                actionbar!!.setDisplayHomeAsUpEnabled(false)
-                openBottomSheet()
-
-                true
-            }
             else -> super.onOptionsItemSelected(item)
         }
     }
 
+    // Получить места
     fun getPlaces() {
         val databaseHandler = DatabaseHandler(this)
 
         val place: List<PlacesModelClass> = databaseHandler.viewPlace()
-        val placeArrayId = Array(place.size){"0"}
-        val placeArrayTagId = Array(place.size){"null"}
-        val placeArrayCityId = Array(place.size){"0"}
-        val placeArrayName = Array(place.size){"null"}
-        val placeArrayDescription = Array(place.size){"null"}
-        val placeArrayImage = Array(place.size){"null"}
-        val placeArrayLat = Array(place.size){"null"}
-        val placeArrayLon = Array(place.size){"null"}
-        val placeArrayPrice = Array(place.size){"null"}
+        val placeArrayId = Array(place.size) { "0" }
+        val placeArrayTagId = Array(place.size) { "null" }
+        val placeArrayCityId = Array(place.size) { "0" }
+        val placeArrayName = Array(place.size) { "null" }
+        val placeArrayDescription = Array(place.size) { "null" }
+        val placeArrayImage = Array(place.size) { "null" }
+        val placeArrayLat = Array(place.size) { "null" }
+        val placeArrayLon = Array(place.size) { "null" }
+        val placeArrayPrice = Array(place.size) { "null" }
         var index = 0
-        for(e in place) {
+        for (e in place) {
             placeArrayId[index] = e.id.toString()
             placeArrayTagId[index] = e.tag_id
             placeArrayCityId[index] = e.city_name
@@ -213,7 +229,19 @@ class MainActivity : AppCompatActivity() {
             index++
         }
 
-        val placesAdapter = PlacesAdapter(this,placeArrayId,placeArrayTagId,placeArrayCityId,placeArrayName,placeArrayDescription,placeArrayImage,placeArrayLat,placeArrayLon, placeArrayPrice, VIEW_TYPE)
+        val placesAdapter = PlacesAdapter(
+            this,
+            placeArrayId,
+            placeArrayTagId,
+            placeArrayCityId,
+            placeArrayName,
+            placeArrayDescription,
+            placeArrayImage,
+            placeArrayLat,
+            placeArrayLon,
+            placeArrayPrice,
+            VIEW_TYPE
+        )
         viewList.adapter = placesAdapter
 
         viewList.setOnItemClickListener(OnItemClickListener { parent, view, position, id ->
@@ -223,23 +251,14 @@ class MainActivity : AppCompatActivity() {
         })
     }
 
+    // Получить теги
     private fun addListChips() {
         try {
-        val chipGroup = findViewById<ChipGroup>(R.id.chipGroup)
             val inflater = LayoutInflater.from(this)
 
             val databaseHandler = DatabaseHandler(this)
-
             val tag: List<TagsModelClass> = databaseHandler.viewTag()
-            val tagArrayId = Array<String>(tag.size){"0"}
-            val tagArrayTitle = Array<String>(tag.size){"null"}
-            val tagArrayActive = Array<String>(tag.size){"null"}
-            var index = 0
-            for(e in tag){
-                tagArrayId[index] = e.tagId.toString()
-                tagArrayTitle[index] = e.tagName
-                tagArrayActive[index] = e.tagActive.toString()
-
+            for (e in tag) {
                 val chip = inflater.inflate(R.layout.layout_chip_entry, chipGroup, false) as Chip
                 chip.text = e.tagName
                 chip.isChecked = e.tagActive == 1
@@ -247,12 +266,10 @@ class MainActivity : AppCompatActivity() {
                 chipGroup.addView(chip)
 
                 chip.setOnClickListener {
-                    // Responds to chip click
                     Log.i("setOnClickListener", it.toString())
                 }
 
                 chip.setOnCloseIconClickListener {
-                    // Responds to chip's close icon click if one is present
                     Log.i("setOnCloseIconClickList", it.toString())
                 }
 
@@ -264,13 +281,17 @@ class MainActivity : AppCompatActivity() {
                     } ?: kotlin.run {
                     }
                 }
-
-                index++
             }
         } catch (e: Exception) {
             e.printStackTrace()
             Toast.makeText(this, "Error: " + e.message, Toast.LENGTH_LONG).show()
             Log.e("Error", "Error: " + e.message)
+        }
+    }
+
+    fun submitPlaces() {
+        submitFilter.setOnClickListener {
+
         }
     }
 }
