@@ -15,6 +15,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
+    <!-- Планка с индикатором маршрута -->
     <androidx.cardview.widget.CardView
         android:id="@+id/tripProgressCard"
         android:layout_width="0dp"
@@ -40,6 +41,7 @@
             app:srcCompat="@android:drawable/ic_delete" />
     </androidx.cardview.widget.CardView>
 
+    <!--    Плашка с навигацией-->
     <com.mapbox.navigation.ui.maneuver.view.MapboxManeuverView
         android:id="@+id/maneuverView"
         android:layout_width="0dp"
@@ -50,6 +52,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
+    <!-- Вид сверху (2D) -->
     <com.mapbox.navigation.ui.maps.camera.view.MapboxRouteOverviewButton
         android:id="@+id/routeOverview"
         android:layout_width="wrap_content"
@@ -68,4 +71,11 @@
         android:layout_marginEnd="16dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toBottomOf="@id/routeOverview" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/createRoute"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Посторить маршрут"
+        app:layout_constraintBottom_toBottomOf="parent" />
 </androidx.constraintlayout.widget.ConstraintLayout>
