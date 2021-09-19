@@ -1,14 +1,21 @@
 package com.example.travel
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.content.res.Configuration
 import android.content.res.Resources
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.drawable.BitmapDrawable
+import android.graphics.drawable.Drawable
 import android.location.Location
 import android.os.Bundle
 import android.util.Log
 import android.view.View
 import android.widget.Toast
+import androidx.annotation.DrawableRes
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.content.res.AppCompatResources
 import androidx.core.content.ContextCompat
 import com.example.travel.helpers.GlobalHelper
 import com.mapbox.api.directions.v5.models.Bearing
@@ -20,12 +27,14 @@ import com.mapbox.common.TileRegionLoadOptions
 import com.mapbox.common.TileStore
 import com.mapbox.common.TileStoreOptions
 import com.mapbox.geojson.Feature
-import com.mapbox.geojson.MultiPolygon
 import com.mapbox.geojson.Point
 import com.mapbox.geojson.Polygon
 import com.mapbox.maps.*
 import com.mapbox.maps.plugin.LocationPuck2D
 import com.mapbox.maps.plugin.animation.camera
+import com.mapbox.maps.plugin.annotation.annotations
+import com.mapbox.maps.plugin.annotation.generated.PointAnnotationOptions
+import com.mapbox.maps.plugin.annotation.generated.createPointAnnotationManager
 import com.mapbox.maps.plugin.locationcomponent.location
 import com.mapbox.navigation.base.TimeFormat
 import com.mapbox.navigation.base.extensions.applyDefaultNavigationOptions
@@ -47,7 +56,6 @@ import com.mapbox.navigation.ui.maps.camera.NavigationCamera
 import com.mapbox.navigation.ui.maps.camera.data.MapboxNavigationViewportDataSource
 import com.mapbox.navigation.ui.maps.camera.lifecycle.NavigationBasicGesturesHandler
 import com.mapbox.navigation.ui.maps.camera.state.NavigationCameraState
-import com.mapbox.navigation.ui.maps.camera.transition.NavigationCameraTransitionOptions
 import com.mapbox.navigation.ui.maps.location.NavigationLocationProvider
 import com.mapbox.navigation.ui.maps.route.arrow.api.MapboxRouteArrowApi
 import com.mapbox.navigation.ui.maps.route.arrow.api.MapboxRouteArrowView
@@ -60,7 +68,6 @@ import com.mapbox.navigation.ui.tripprogress.api.MapboxTripProgressApi
 import com.mapbox.navigation.ui.tripprogress.model.*
 import com.mapbox.navigation.ui.tripprogress.view.MapboxTripProgressView
 import kotlinx.android.synthetic.main.activity_map.*
-
 
 class MapActivity : AppCompatActivity() {
     companion object {
@@ -205,10 +212,10 @@ class MapActivity : AppCompatActivity() {
             keyPoints: List<Location>
         ) {
             // обновить местоположение шайбы на карте
-            navigationLocationProvider.changePosition(
-                location = enhancedLocation,
-                keyPoints = keyPoints
-            )
+//            navigationLocationProvider.changePosition(
+//                location = enhancedLocation,
+//                keyPoints = keyPoints
+//            )
 
             // обновить положение камеры с учетом нового местоположения
             viewportDataSource.onLocationChanged(enhancedLocation)
@@ -216,14 +223,14 @@ class MapActivity : AppCompatActivity() {
 
             // если это первое обновление местоположения, полученное действием,
             // лучше сразу переместить камеру в текущее местоположение пользователя
-            if (!firstLocationUpdateReceived) {
-                firstLocationUpdateReceived = true
-                navigationCamera.requestNavigationCameraToOverview(
-                    stateTransitionOptions = NavigationCameraTransitionOptions.Builder()
-                        .maxDuration(0) // мгновенный переход
-                        .build()
-                )
-            }
+//            if (!firstLocationUpdateReceived) {
+//                firstLocationUpdateReceived = true
+//                navigationCamera.requestNavigationCameraToOverview(
+//                    stateTransitionOptions = NavigationCameraTransitionOptions.Builder()
+//                        .maxDuration(0) // мгновенный переход
+//                        .build()
+//                )
+//            }
         }
     }
 
@@ -312,6 +319,11 @@ class MapActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_map)
 
+        val lat = intent.getStringExtra(LAT)
+        val lon = intent.getStringExtra(LON)
+
+        val coordinationPoint: Point? = Point.fromLngLat(lon!!.toDouble(), lat!!.toDouble())
+
         /*** Запрос на получение доступа к месторасположению ***/
         GlobalHelper.accessLocation(this)
         /*** --- ***/
@@ -359,10 +371,26 @@ class MapActivity : AppCompatActivity() {
             .tileStoreUsageMode(TileStoreUsageMode.READ_AND_UPDATE)
             .build()
 
-        mapView = MapView(
-            this,
-            MapInitOptions(this, resourceOptions)
-        )
+        // set map options
+        val mapOptions = MapOptions.Builder().applyDefaultParams(this)
+            .constrainMode(ConstrainMode.HEIGHT_ONLY)
+            .glyphsRasterizationOptions(
+                GlyphsRasterizationOptions.Builder()
+                    .rasterizationMode(GlyphsRasterizationMode.IDEOGRAPHS_RASTERIZED_LOCALLY)
+                    .fontFamily("sans-serif")
+                    .build()
+            )
+            .build()
+
+        val initialCameraOptions = CameraOptions.Builder()
+            .center(coordinationPoint)
+            .zoom(13.0)
+            .bearing(120.0)
+            .build()
+
+        val mapInitOptions = MapInitOptions(this, resourceOptions, mapOptions, MapInitOptions.defaultPluginList, initialCameraOptions, true)
+        mapView = MapView(this, mapInitOptions)
+
         mapViewContainer.addView(mapView)
         mapboxMap = mapView.getMapboxMap()
 
@@ -379,7 +407,24 @@ class MapActivity : AppCompatActivity() {
         }
 
         // инициализация стилей карты
-        initStyle()
+//        initStyle()
+        mapView.getMapboxMap().loadStyleUri(
+            Style.MAPBOX_STREETS
+        ) {
+            bitmapFromDrawableRes(
+                this@MapActivity,
+                R.drawable.ic_baseline_add_location_alt_24
+            )?.let {
+                val annotationApi = mapView.annotations
+                val pointAnnotationManager = annotationApi.createPointAnnotationManager(mapView)
+                val pointAnnotationOptions: PointAnnotationOptions = PointAnnotationOptions()
+                    .withPoint(Point.fromLngLat(27.559299665291515, 53.900520195244425))
+                    .withIconImage(it)
+                pointAnnotationManager.create(pointAnnotationOptions)
+            }
+
+            addAnnotationToMap()
+        }
 
         // инициализировать навигационную камеру
         viewportDataSource = MapboxNavigationViewportDataSource(mapboxMap)
@@ -473,11 +518,6 @@ class MapActivity : AppCompatActivity() {
         mapboxNavigation.startTripSession()
 
         /*** Прокладываем маршрут ***/
-        val lat = intent.getStringExtra(LAT)
-        val lon = intent.getStringExtra(LON)
-
-        val coordinationPoint: Point? = Point.fromLngLat(lon!!.toDouble(), lat!!.toDouble())
-
         createRoute.setOnClickListener {
             if (coordinationPoint != null) {
                 findRoute(coordinationPoint)
@@ -517,7 +557,8 @@ class MapActivity : AppCompatActivity() {
                     ]
                 }
             }
-"""
+            """
+
         val singleFeature = Feature.fromJson(polygonFeatureJson)
         val polygonJSON = singleFeature.geometry() as Polygon?
 
@@ -526,6 +567,7 @@ class MapActivity : AppCompatActivity() {
             .descriptors(listOf(mapsTilesetDescriptor, navTilesetDescriptor))
             .build()
 
+        // TODO ERROR
         /*val tileRegionCancelable = tileStore.loadTileRegion(
             "TOKYO",
             tileRegionLoadOptions,
@@ -640,18 +682,65 @@ class MapActivity : AppCompatActivity() {
     private fun initStyle() {
         // загрузить стиль карты
         mapboxMap.loadStyleUri(
-            Style.MAPBOX_STREETS
-        ) {
+            Style.MAPBOX_STREETS,
+            object : Style.OnStyleLoaded {
+                override fun onStyleLoaded(style: Style) {
+                    addAnnotationToMap()
+                }
+            }
+        )
+//        {
             // добавить прослушиватель долгого щелчка, который ищет маршрут к месту назначения, по которому щелкнули
             /*mapView.gestures.addOnMapLongClickListener { point ->
                 findRoute(point)
                 true
             }*/
-        }
+//        }
     }
 
-    private fun downloadMap(name: String) {
+    private fun addAnnotationToMap() {
+        // Создайте экземпляр Annotation API и получите PointAnnotationManager.
+        bitmapFromDrawableRes(
+            this@MapActivity,
+            R.drawable.ic_baseline_location_searching_24
+        )?.let {
+            val annotationApi = mapView.annotations
+            val pointAnnotationManager = annotationApi.createPointAnnotationManager(mapView)
+            // Задайте параметры для результирующего слоя символов.
+            val pointAnnotationOptions: PointAnnotationOptions = PointAnnotationOptions()
+                // Определите географические координаты.
+                .withPoint(Point.fromLngLat(18.06, 59.31))
+                // Укажите растровое изображение, назначенное аннотации точки
+                // Растровое изображение будет добавлено в стиль карты автоматически..
+                .withIconImage(it)
+                // Добавьте полученную точку аннотации на карту.
+            pointAnnotationManager.create(pointAnnotationOptions)
 
-
+            val position = CameraOptions.Builder()
+                .center(Point.fromLngLat(51.50550, -0.07520))
+                .zoom(10.0)
+                .build()
+        }
+    }
+    private fun bitmapFromDrawableRes(context: Context, @DrawableRes resourceId: Int) = convertDrawableToBitmap(AppCompatResources.getDrawable(context, resourceId))
+    private fun convertDrawableToBitmap(sourceDrawable: Drawable?): Bitmap? {
+        if (sourceDrawable == null) {
+            return null
+        }
+        return if (sourceDrawable is BitmapDrawable) {
+            sourceDrawable.bitmap
+        } else {
+            // копирование рисованного объекта, чтобы не манипулировать одной и той же ссылкой
+            val constantState = sourceDrawable.constantState ?: return null
+            val drawable = constantState.newDrawable().mutate()
+            val bitmap: Bitmap = Bitmap.createBitmap(
+                drawable.intrinsicWidth, drawable.intrinsicHeight,
+                Bitmap.Config.ARGB_8888
+            )
+            val canvas = Canvas(bitmap)
+            drawable.setBounds(0, 0, canvas.width, canvas.height)
+            drawable.draw(canvas)
+            bitmap
+        }
     }
 }
