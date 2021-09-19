@@ -56,6 +56,7 @@ import com.mapbox.navigation.ui.maps.camera.NavigationCamera
 import com.mapbox.navigation.ui.maps.camera.data.MapboxNavigationViewportDataSource
 import com.mapbox.navigation.ui.maps.camera.lifecycle.NavigationBasicGesturesHandler
 import com.mapbox.navigation.ui.maps.camera.state.NavigationCameraState
+import com.mapbox.navigation.ui.maps.camera.transition.NavigationCameraTransitionOptions
 import com.mapbox.navigation.ui.maps.location.NavigationLocationProvider
 import com.mapbox.navigation.ui.maps.route.arrow.api.MapboxRouteArrowApi
 import com.mapbox.navigation.ui.maps.route.arrow.api.MapboxRouteArrowView
@@ -94,12 +95,12 @@ class MapActivity : AppCompatActivity() {
      * Используется для выполнения переходов камеры на основе данных, сгенерированных [viewportDataSource].
      * Сюда входят переходы от обзора маршрута к отслеживанию маршрута и постоянное обновление камеры по мере изменения местоположения.
      */
-    private lateinit var navigationCamera: NavigationCamera
+    private var navigationCamera: NavigationCamera? = null
 
     /**
      * Создает кадры камеры на основе данных о местоположении и маршруте для выполнения [navigationCamera].
      */
-    private lateinit var viewportDataSource: MapboxNavigationViewportDataSource
+    private var viewportDataSource: MapboxNavigationViewportDataSource? = null
 
     /*
     * Ниже приведены сгенерированные значения заполнения камеры, чтобы гарантировать, что маршрут хорошо вписывается в экран,
@@ -212,25 +213,27 @@ class MapActivity : AppCompatActivity() {
             keyPoints: List<Location>
         ) {
             // обновить местоположение шайбы на карте
-//            navigationLocationProvider.changePosition(
-//                location = enhancedLocation,
-//                keyPoints = keyPoints
-//            )
+            navigationLocationProvider.changePosition(
+                location = enhancedLocation,
+                keyPoints = keyPoints
+            )
 
             // обновить положение камеры с учетом нового местоположения
-            viewportDataSource.onLocationChanged(enhancedLocation)
-            viewportDataSource.evaluate()
+            if (viewportDataSource != null) {
+                viewportDataSource?.onLocationChanged(enhancedLocation)
+                viewportDataSource?.evaluate()
+            }
 
             // если это первое обновление местоположения, полученное действием,
             // лучше сразу переместить камеру в текущее местоположение пользователя
-//            if (!firstLocationUpdateReceived) {
-//                firstLocationUpdateReceived = true
-//                navigationCamera.requestNavigationCameraToOverview(
-//                    stateTransitionOptions = NavigationCameraTransitionOptions.Builder()
-//                        .maxDuration(0) // мгновенный переход
-//                        .build()
-//                )
-//            }
+            if (!firstLocationUpdateReceived) {
+                firstLocationUpdateReceived = true
+                navigationCamera?.requestNavigationCameraToOverview(
+                    stateTransitionOptions = NavigationCameraTransitionOptions.Builder()
+                        .maxDuration(0) // мгновенный переход
+                        .build()
+                )
+            }
         }
     }
 
@@ -239,8 +242,8 @@ class MapActivity : AppCompatActivity() {
      */
     private val routeProgressObserver = RouteProgressObserver { routeProgress ->
         // обновить положение камеры с учетом продвинутого фрагмента маршрута
-        viewportDataSource.onRouteProgressChanged(routeProgress)
-        viewportDataSource.evaluate()
+        viewportDataSource?.onRouteProgressChanged(routeProgress)
+        viewportDataSource?.evaluate()
 
         // Нарисуйте на карте стрелку предстоящего маневра
         val style = mapboxMap.getStyle()
@@ -293,8 +296,8 @@ class MapActivity : AppCompatActivity() {
             }
 
             // обновить положение камеры, чтобы учесть новый маршрут
-            viewportDataSource.onRouteChanged(routes.first())
-            viewportDataSource.evaluate()
+            viewportDataSource?.onRouteChanged(routes.first())
+            viewportDataSource?.evaluate()
         } else {
             // удалить линию маршрута и стрелку маршрута с карты
             val style = mapboxMap.getStyle()
@@ -309,8 +312,8 @@ class MapActivity : AppCompatActivity() {
             }
 
             // удалить ссылку на маршрут из оценок положения камеры
-            viewportDataSource.clearRouteData()
-            viewportDataSource.evaluate()
+            viewportDataSource?.clearRouteData()
+            viewportDataSource?.evaluate()
         }
     }
 
@@ -328,7 +331,7 @@ class MapActivity : AppCompatActivity() {
         GlobalHelper.accessLocation(this)
         /*** --- ***/
 
-        // инициализировать навигацию Mapbox
+        /*** Оставить тут ***/
         val tileStore = TileStore.create(filesDir.path + "/mapbox").apply {
             setOption(
                 TileStoreOptions.MAPBOX_ACCESS_TOKEN,
@@ -352,6 +355,7 @@ class MapActivity : AppCompatActivity() {
             .routingTilesOptions(routingTilesOptions)
             .build()
 
+        /*** Init Mapbox Navigationu ***/
         mapboxNavigation = if (MapboxNavigationProvider.isCreated()) {
             MapboxNavigationProvider.retrieve()
         } else {
@@ -365,6 +369,8 @@ class MapActivity : AppCompatActivity() {
             }
         }
 
+        /*** Initialisation map ***/
+        // set resource options
         val resourceOptions = ResourceOptions.Builder()
             .accessToken(getString(R.string.mapbox_access_token))
             .tileStore(tileStore)
@@ -382,6 +388,7 @@ class MapActivity : AppCompatActivity() {
             )
             .build()
 
+        // initial camera options
         val initialCameraOptions = CameraOptions.Builder()
             .center(coordinationPoint)
             .zoom(13.0)
@@ -390,24 +397,9 @@ class MapActivity : AppCompatActivity() {
 
         val mapInitOptions = MapInitOptions(this, resourceOptions, mapOptions, MapInitOptions.defaultPluginList, initialCameraOptions, true)
         mapView = MapView(this, mapInitOptions)
-
         mapViewContainer.addView(mapView)
-        mapboxMap = mapView.getMapboxMap()
-
-        // инициализировать шайбу местоположения
-        mapView.location.apply {
-            this.locationPuck = LocationPuck2D(
-                bearingImage = ContextCompat.getDrawable(
-                    this@MapActivity,
-                    R.drawable.mapbox_navigation_puck_icon
-                )
-            )
-            setLocationProvider(navigationLocationProvider)
-            enabled = true
-        }
 
         // инициализация стилей карты
-//        initStyle()
         mapView.getMapboxMap().loadStyleUri(
             Style.MAPBOX_STREETS
         ) {
@@ -425,108 +417,31 @@ class MapActivity : AppCompatActivity() {
 
             addAnnotationToMap()
         }
+        /*** End Initialisation map ***/
 
-        // инициализировать навигационную камеру
-        viewportDataSource = MapboxNavigationViewportDataSource(mapboxMap)
-        navigationCamera = NavigationCamera(
-            mapboxMap,
-            mapView.camera,
-            viewportDataSource
-        )
-        // установите прослушиватель жизненного цикла анимации, чтобы убедиться, что NavigationCamera останавливается
-        // автоматически следует за местоположением пользователя при взаимодействии с картой
-        mapView.camera.addCameraAnimationsLifecycleListener(
-            NavigationBasicGesturesHandler(navigationCamera)
-        )
-        navigationCamera.registerNavigationCameraStateChangeObserver { navigationCameraState ->
-            // показывает / скрывает кнопку повторного центрирования в зависимости от состояния камеры
-            when (navigationCameraState) {
-                NavigationCameraState.TRANSITION_TO_FOLLOWING,
-                NavigationCameraState.FOLLOWING -> recenter.visibility = View.INVISIBLE
-                NavigationCameraState.TRANSITION_TO_OVERVIEW,
-                NavigationCameraState.OVERVIEW,
-                NavigationCameraState.IDLE -> recenter.visibility = View.VISIBLE
-            }
-        }
-        // установить значения отступов в зависимости от ориентации экрана и видимого view layout
-        if (this.resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE) {
-            viewportDataSource.overviewPadding = landscapeOverviewPadding
-        } else {
-            viewportDataSource.overviewPadding = overviewPadding
-        }
-        if (this.resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE) {
-            viewportDataSource.followingPadding = landscapeFollowingPadding
-        } else {
-            viewportDataSource.followingPadding = followingPadding
-        }
+        mapboxMap = mapView.getMapboxMap()
 
-        // убедитесь, что вы используете одни и те же DistanceFormatterOptions для разных функций
-        val distanceFormatterOptions = mapboxNavigation.navigationOptions.distanceFormatterOptions
-
-        // инициализировать api маневра, который передает данные в представление маневра верхнего баннера
-        maneuverApi = MapboxManeuverApi(
-            MapboxDistanceFormatter(distanceFormatterOptions)
-        )
-
-        // инициализировать нижний прогресс
-        tripProgressApi = MapboxTripProgressApi(
-            TripProgressUpdateFormatter.Builder(this)
-                .distanceRemainingFormatter(
-                    DistanceRemainingFormatter(distanceFormatterOptions)
+        // инициализировать шайбу местоположения
+        mapView.location.apply {
+            this.locationPuck = LocationPuck2D(
+                bearingImage = ContextCompat.getDrawable(
+                    this@MapActivity,
+                    R.drawable.mapbox_navigation_puck_icon
                 )
-                .timeRemainingFormatter(
-                    TimeRemainingFormatter(this)
-                )
-                .percentRouteTraveledFormatter(
-                    PercentDistanceTraveledFormatter()
-                )
-                .estimatedTimeToArrivalFormatter(
-                    EstimatedTimeToArrivalFormatter(this, TimeFormat.NONE_SPECIFIED)
-                )
-                .build()
-        )
-
-        // инициализируем строку маршрута, withRouteLineBelowLayerId указывается для размещения
-        // линия маршрута под слоем обозначений дорог на карте
-        // значение этой опции будет зависеть от стиля, который вы используете
-        // и под каким слоем линия маршрута должна быть помещена в стек слоев карты
-        val mapboxRouteLineOptions = MapboxRouteLineOptions.Builder(this)
-            .withRouteLineBelowLayerId("road-label")
-            .build()
-        routeLineApi = MapboxRouteLineApi(mapboxRouteLineOptions)
-        routeLineView = MapboxRouteLineView(mapboxRouteLineOptions)
-
-        // инициализировать представление стрелки маневра для рисования стрелок на карте
-        val routeArrowOptions = RouteArrowOptions.Builder(this).build()
-        routeArrowView = MapboxRouteArrowView(routeArrowOptions)
-
-        // инициализировать взаимодействие просмотра
-        stop.setOnClickListener {
-            clearRouteAndStopNavigation()
+            )
+            setLocationProvider(navigationLocationProvider)
+            enabled = true
         }
-        recenter.setOnClickListener {
-            navigationCamera.requestNavigationCameraToFollowing()
-            routeOverview.showTextAndExtend(BUTTON_ANIMATION_DURATION)
-        }
-        routeOverview.setOnClickListener {
-            navigationCamera.requestNavigationCameraToOverview()
-            recenter.showTextAndExtend(BUTTON_ANIMATION_DURATION)
-        }
-
-        // запускаем сеанс поездки для получения обновлений местоположения на свободном вождении
-        // и позже, когда маршрут установлен, также получаем обновления хода маршрута
-        mapboxNavigation.startTripSession()
 
         /*** Прокладываем маршрут ***/
         createRoute.setOnClickListener {
             if (coordinationPoint != null) {
-                findRoute(coordinationPoint)
-                createRoute.visibility = View.INVISIBLE
+                createRouteFun(coordinationPoint)
             }
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-        val mapsTilesetDescriptor = offlineManager?.createTilesetDescriptor(
+        /*val mapsTilesetDescriptor = offlineManager?.createTilesetDescriptor(
             TilesetDescriptorOptions.Builder()
                 .styleURI(Style.MAPBOX_STREETS)
                 .minZoom(15)
@@ -565,7 +480,7 @@ class MapActivity : AppCompatActivity() {
         val tileRegionLoadOptions = TileRegionLoadOptions.Builder()
             .geometry(polygonJSON)
             .descriptors(listOf(mapsTilesetDescriptor, navTilesetDescriptor))
-            .build()
+            .build()*/
 
         // TODO ERROR
         /*val tileRegionCancelable = tileStore.loadTileRegion(
@@ -665,7 +580,7 @@ class MapActivity : AppCompatActivity() {
         tripProgressCard.visibility = View.VISIBLE
 
         // переместите камеру в режим обзора, когда станет доступен новый маршрут
-        navigationCamera.requestNavigationCameraToOverview()
+        navigationCamera?.requestNavigationCameraToOverview()
     }
 
     private fun clearRouteAndStopNavigation() {
@@ -679,25 +594,104 @@ class MapActivity : AppCompatActivity() {
         createRoute.visibility = View.VISIBLE
     }
 
-    private fun initStyle() {
-        // загрузить стиль карты
-        mapboxMap.loadStyleUri(
-            Style.MAPBOX_STREETS,
-            object : Style.OnStyleLoaded {
-                override fun onStyleLoaded(style: Style) {
-                    addAnnotationToMap()
-                }
-            }
+    @SuppressLint("MissingPermission")
+    private fun createRouteFun(coordinationPoint: Point) {
+        // инициализировать навигационную камеру
+        viewportDataSource = MapboxNavigationViewportDataSource(mapboxMap)
+        navigationCamera = NavigationCamera(
+            mapboxMap,
+            mapView.camera,
+            viewportDataSource!!
         )
-//        {
-            // добавить прослушиватель долгого щелчка, который ищет маршрут к месту назначения, по которому щелкнули
-            /*mapView.gestures.addOnMapLongClickListener { point ->
-                findRoute(point)
-                true
-            }*/
-//        }
+        // установите прослушиватель жизненного цикла анимации, чтобы убедиться, что NavigationCamera останавливается
+        // автоматически следует за местоположением пользователя при взаимодействии с картой
+        mapView.camera.addCameraAnimationsLifecycleListener(
+            NavigationBasicGesturesHandler(navigationCamera!!)
+        )
+        navigationCamera?.registerNavigationCameraStateChangeObserver { navigationCameraState ->
+            // показывает / скрывает кнопку повторного центрирования в зависимости от состояния камеры
+            when (navigationCameraState) {
+                NavigationCameraState.TRANSITION_TO_FOLLOWING,
+                NavigationCameraState.FOLLOWING -> recenter.visibility = View.INVISIBLE
+                NavigationCameraState.TRANSITION_TO_OVERVIEW,
+                NavigationCameraState.OVERVIEW,
+                NavigationCameraState.IDLE -> recenter.visibility = View.VISIBLE
+            }
+        }
+        // установить значения отступов в зависимости от ориентации экрана и видимого view layout
+        if (this.resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE) {
+            viewportDataSource?.overviewPadding = landscapeOverviewPadding
+        } else {
+            viewportDataSource?.overviewPadding = overviewPadding
+        }
+        if (this.resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE) {
+            viewportDataSource?.followingPadding = landscapeFollowingPadding
+        } else {
+            viewportDataSource?.followingPadding = followingPadding
+        }
+
+        // убедитесь, что вы используете одни и те же DistanceFormatterOptions для разных функций
+        val distanceFormatterOptions = mapboxNavigation.navigationOptions.distanceFormatterOptions
+
+        // инициализировать api маневра, который передает данные в представление маневра верхнего баннера
+        maneuverApi = MapboxManeuverApi(
+            MapboxDistanceFormatter(distanceFormatterOptions)
+        )
+
+        // инициализировать нижний прогресс
+        tripProgressApi = MapboxTripProgressApi(
+            TripProgressUpdateFormatter.Builder(this)
+                .distanceRemainingFormatter(
+                    DistanceRemainingFormatter(distanceFormatterOptions)
+                )
+                .timeRemainingFormatter(
+                    TimeRemainingFormatter(this)
+                )
+                .percentRouteTraveledFormatter(
+                    PercentDistanceTraveledFormatter()
+                )
+                .estimatedTimeToArrivalFormatter(
+                    EstimatedTimeToArrivalFormatter(this, TimeFormat.NONE_SPECIFIED)
+                )
+                .build()
+        )
+
+        // инициализируем строку маршрута, withRouteLineBelowLayerId указывается для размещения
+        // линия маршрута под слоем обозначений дорог на карте
+        // значение этой опции будет зависеть от стиля, который вы используете
+        // и под каким слоем линия маршрута должна быть помещена в стек слоев карты
+        val mapboxRouteLineOptions = MapboxRouteLineOptions.Builder(this)
+            .withRouteLineBelowLayerId("road-label")
+            .build()
+        routeLineApi = MapboxRouteLineApi(mapboxRouteLineOptions)
+        routeLineView = MapboxRouteLineView(mapboxRouteLineOptions)
+
+        // инициализировать представление стрелки маневра для рисования стрелок на карте
+        val routeArrowOptions = RouteArrowOptions.Builder(this).build()
+        routeArrowView = MapboxRouteArrowView(routeArrowOptions)
+
+        // инициализировать взаимодействие просмотра
+        stop.setOnClickListener {
+            clearRouteAndStopNavigation()
+        }
+        recenter.setOnClickListener {
+            navigationCamera?.requestNavigationCameraToFollowing()
+            routeOverview.showTextAndExtend(BUTTON_ANIMATION_DURATION)
+        }
+        routeOverview.setOnClickListener {
+            navigationCamera?.requestNavigationCameraToOverview()
+            recenter.showTextAndExtend(BUTTON_ANIMATION_DURATION)
+        }
+
+        // запускаем сеанс поездки для получения обновлений местоположения на свободном вождении
+        // и позже, когда маршрут установлен, также получаем обновления хода маршрута
+        mapboxNavigation.startTripSession()
+
+        findRoute(coordinationPoint)
+        createRoute.visibility = View.INVISIBLE
     }
 
+    /*** Create point ***/
     private fun addAnnotationToMap() {
         // Создайте экземпляр Annotation API и получите PointAnnotationManager.
         bitmapFromDrawableRes(
