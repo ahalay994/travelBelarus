@@ -1,31 +1,35 @@
 package com.example.travel
 
-import androidx.appcompat.app.AppCompatActivity
-import android.os.Bundle
-import com.mapbox.navigation.core.replay.MapboxReplayer
-import com.mapbox.navigation.core.replay.ReplayLocationEngine
 import android.annotation.SuppressLint
 import android.content.res.Configuration
 import android.content.res.Resources
 import android.location.Location
+import android.os.Bundle
+import android.util.Log
 import android.view.View
 import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import com.example.travel.helpers.GlobalHelper
 import com.mapbox.api.directions.v5.models.Bearing
 import com.mapbox.api.directions.v5.models.DirectionsRoute
 import com.mapbox.api.directions.v5.models.RouteOptions
-import com.mapbox.bindgen.Expected
+import com.mapbox.bindgen.Value
+import com.mapbox.common.TileDataDomain
+import com.mapbox.common.TileRegionLoadOptions
+import com.mapbox.common.TileStore
+import com.mapbox.common.TileStoreOptions
 import com.mapbox.geojson.Point
+import com.mapbox.geojson.Polygon
 import com.mapbox.maps.*
 import com.mapbox.maps.plugin.LocationPuck2D
-import com.mapbox.maps.plugin.animation.MapAnimationOptions
 import com.mapbox.maps.plugin.animation.camera
-import com.mapbox.maps.plugin.gestures.gestures
 import com.mapbox.maps.plugin.locationcomponent.location
 import com.mapbox.navigation.base.TimeFormat
 import com.mapbox.navigation.base.extensions.applyDefaultNavigationOptions
 import com.mapbox.navigation.base.extensions.applyLanguageAndVoiceUnitOptions
 import com.mapbox.navigation.base.options.NavigationOptions
+import com.mapbox.navigation.base.options.RoutingTilesOptions
 import com.mapbox.navigation.base.route.RouterCallback
 import com.mapbox.navigation.base.route.RouterFailure
 import com.mapbox.navigation.base.route.RouterOrigin
@@ -33,13 +37,8 @@ import com.mapbox.navigation.core.MapboxNavigation
 import com.mapbox.navigation.core.MapboxNavigationProvider
 import com.mapbox.navigation.core.directions.session.RoutesObserver
 import com.mapbox.navigation.core.formatter.MapboxDistanceFormatter
-import com.mapbox.navigation.core.replay.route.ReplayProgressObserver
-import com.mapbox.navigation.core.replay.route.ReplayRouteMapper
 import com.mapbox.navigation.core.trip.session.LocationObserver
 import com.mapbox.navigation.core.trip.session.RouteProgressObserver
-import com.mapbox.navigation.core.trip.session.VoiceInstructionsObserver
-//import com.mapbox.navigation.examples.dataMapboxActivityTurnByTurnExperienceBinding
-import com.mapbox.navigation.ui.base.util.MapboxNavigationConsumer
 import com.mapbox.navigation.ui.maneuver.api.MapboxManeuverApi
 import com.mapbox.navigation.ui.maneuver.view.MapboxManeuverView
 import com.mapbox.navigation.ui.maps.camera.NavigationCamera
@@ -56,27 +55,9 @@ import com.mapbox.navigation.ui.maps.route.line.api.MapboxRouteLineView
 import com.mapbox.navigation.ui.maps.route.line.model.MapboxRouteLineOptions
 import com.mapbox.navigation.ui.maps.route.line.model.RouteLine
 import com.mapbox.navigation.ui.tripprogress.api.MapboxTripProgressApi
-import com.mapbox.navigation.ui.tripprogress.model.DistanceRemainingFormatter
-import com.mapbox.navigation.ui.tripprogress.model.EstimatedTimeToArrivalFormatter
-import com.mapbox.navigation.ui.tripprogress.model.PercentDistanceTraveledFormatter
-import com.mapbox.navigation.ui.tripprogress.model.TimeRemainingFormatter
-import com.mapbox.navigation.ui.tripprogress.model.TripProgressUpdateFormatter
+import com.mapbox.navigation.ui.tripprogress.model.*
 import com.mapbox.navigation.ui.tripprogress.view.MapboxTripProgressView
-import com.mapbox.navigation.ui.voice.api.MapboxSpeechApi
-import com.mapbox.navigation.ui.voice.api.MapboxVoiceInstructionsPlayer
-import com.mapbox.navigation.ui.voice.model.SpeechAnnouncement
-import com.mapbox.navigation.ui.voice.model.SpeechError
-import com.mapbox.navigation.ui.voice.model.SpeechValue
-import com.mapbox.navigation.ui.voice.model.SpeechVolume
 import kotlinx.android.synthetic.main.activity_map.*
-import java.util.Locale
-import android.location.LocationManager
-
-import android.R.attr.name
-import android.content.Context
-import android.location.LocationListener
-import com.example.travel.helpers.GlobalHelper
-import com.google.android.gms.location.LocationServices
 
 
 class MapActivity : AppCompatActivity() {
@@ -85,6 +66,8 @@ class MapActivity : AppCompatActivity() {
         const val LON = "lon"
         private const val BUTTON_ANIMATION_DURATION = 1500L
     }
+
+    private lateinit var mapView: MapView
 
     /**
      * Точка входа в карты Mapbox, полученная из [MapView].
@@ -109,7 +92,6 @@ class MapActivity : AppCompatActivity() {
      */
     private lateinit var viewportDataSource: MapboxNavigationViewportDataSource
 
-    var myLocale: Locale? = null;
     /*
     * Ниже приведены сгенерированные значения заполнения камеры, чтобы гарантировать, что маршрут хорошо вписывается в экран,
     * в то время как другие элементы накладываются поверх карты (включая вид инструкций, кнопки и т. Д.)
@@ -179,6 +161,16 @@ class MapActivity : AppCompatActivity() {
     private lateinit var routeArrowView: MapboxRouteArrowView
 
     /**
+     * OfflineManager
+     */
+    var offlineManager: OfflineManager? = null
+
+    /**
+     * TileStore
+     */
+//    private lateinit var tileStore: TileStore
+
+    /**
      * [NavigationLocationProvider] - служебный класс, который помогает предоставлять обновления местоположения,
      * сгенерированные SDK навигации, в SDK Maps для обновления индикатора местоположения пользователя на карте.
      */
@@ -197,6 +189,7 @@ class MapActivity : AppCompatActivity() {
          * Вызывается, как только [Location] становится доступным.
          */
         override fun onRawLocationChanged(rawLocation: Location) {
+            Log.i("rawLocation", rawLocation.toString())
             // Не реализовано в этом примере.
             // Однако, если вы хотите, вы также можете использовать этот обратный вызов для получения обновлений местоположения,
             // но, как следует из названия, это необработанные обновления местоположения, которые обычно шумны.
@@ -270,13 +263,13 @@ class MapActivity : AppCompatActivity() {
     }
 
     /**
-    * Получает уведомление при изменении отслеживаемых маршрутов.
-    *
-    * Изменение может означать:
-    * - маршруты меняются с помощью [MapboxNavigation.setRoutes]
-    * - обновляются аннотации маршрутов (например, аннотации заторов, указывающие на текущий трафик по маршруту)
-    * - водитель сошёл с маршрута, и было выполнено изменение маршрута
-    */
+     * Получает уведомление при изменении отслеживаемых маршрутов.
+     *
+     * Изменение может означать:
+     * - маршруты меняются с помощью [MapboxNavigation.setRoutes]
+     * - обновляются аннотации маршрутов (например, аннотации заторов, указывающие на текущий трафик по маршруту)
+     * - водитель сошёл с маршрута, и было выполнено изменение маршрута
+     */
     private val routesObserver = RoutesObserver { routes ->
         if (routes.isNotEmpty()) {
             // асинхронно генерировать геометрию маршрута и отображать ее
@@ -317,20 +310,58 @@ class MapActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_map)
 
+        /*** Запрос на получение доступа к месторасположению ***/
         GlobalHelper.accessLocation(this)
+        /*** --- ***/
 
-        val lat = intent.getStringExtra(LAT)
-        val lon = intent.getStringExtra(LON)
+        // инициализировать навигацию Mapbox
+        val tileStore = TileStore.create(filesDir.path + "/mapbox").apply {
+            setOption(
+                TileStoreOptions.MAPBOX_ACCESS_TOKEN,
+                TileDataDomain.MAPS,
+                Value(getString(R.string.mapbox_access_token))
+            )
+            setOption(
+                TileStoreOptions.MAPBOX_ACCESS_TOKEN,
+                TileDataDomain.NAVIGATION,
+                Value(getString(R.string.mapbox_access_token)
+                )
+            )
+        }
 
-        val coordinationPoint: Point? = Point.fromLngLat(lon!!.toDouble(), lat!!.toDouble())
+        val routingTilesOptions = RoutingTilesOptions.Builder()
+            .tileStore(tileStore)
+            .build()
 
-        createRoute.setOnClickListener {
-            if (coordinationPoint != null) {
-                findRoute(coordinationPoint)
+        val navOptions = NavigationOptions.Builder(this)
+            .accessToken(getString(R.string.mapbox_access_token))
+            .routingTilesOptions(routingTilesOptions)
+            .build()
+
+        mapboxNavigation = if (MapboxNavigationProvider.isCreated()) {
+            MapboxNavigationProvider.retrieve()
+        } else {
+            MapboxNavigationProvider.create(
+                navOptions
+            ).apply {
+                // Это важно для вызова, поскольку [LocationProvider] начнет отправлять обновления местоположения только после начала сеанса поездки.
+                startTripSession()
+                // Регистрируем наблюдателя местоположения для прослушивания обновлений местоположения, полученных от поставщика местоположения
+                registerLocationObserver(locationObserver)
             }
         }
 
-        myLocale = Locale("ru","RU")
+        val resourceOptions = ResourceOptions.Builder()
+            .accessToken(getString(R.string.mapbox_access_token))
+            .tileStore(tileStore)
+            .tileStoreUsageMode(TileStoreUsageMode.READ_AND_UPDATE)
+            .build()
+
+        mapView = MapView(
+            this,
+            MapInitOptions(this, resourceOptions)
+        )
+        mapViewContainer.addView(mapView)
         mapboxMap = mapView.getMapboxMap()
 
         // инициализировать шайбу местоположения
@@ -347,8 +378,6 @@ class MapActivity : AppCompatActivity() {
 
         // инициализация стилей карты
         initStyle()
-        // инициализировать навигацию Mapbox
-        initNavigation()
 
         // инициализировать навигационную камеру
         viewportDataSource = MapboxNavigationViewportDataSource(mapboxMap)
@@ -440,6 +469,60 @@ class MapActivity : AppCompatActivity() {
         // запускаем сеанс поездки для получения обновлений местоположения на свободном вождении
         // и позже, когда маршрут установлен, также получаем обновления хода маршрута
         mapboxNavigation.startTripSession()
+
+        /*** Прокладываем маршрут ***/
+        val lat = intent.getStringExtra(LAT)
+        val lon = intent.getStringExtra(LON)
+
+        val coordinationPoint: Point? = Point.fromLngLat(lon!!.toDouble(), lat!!.toDouble())
+
+        createRoute.setOnClickListener {
+            if (coordinationPoint != null) {
+                findRoute(coordinationPoint)
+                createRoute.visibility = View.INVISIBLE
+            }
+        }
+
+        /////////////////
+        val mapsTilesetDescriptor = offlineManager?.createTilesetDescriptor(
+            TilesetDescriptorOptions.Builder()
+                .styleURI(Style.MAPBOX_STREETS)
+                .minZoom(15)
+                .maxZoom(16)
+                .build()
+        )
+
+        val navTilesetDescriptor = mapboxNavigation.tilesetDescriptorFactory.getLatest()
+
+
+        val pointFirst = Point.fromLngLat(27.71402866991587, 53.96800608088429)
+        val pointSecond = Point.fromLngLat(27.392335275633705, 53.83814912274236)
+
+        val polygon: Polygon = Polygon.fromLngLats(listOf(listOf(pointFirst, pointSecond)))
+
+
+        val tileRegionLoadOptions = TileRegionLoadOptions.Builder()
+            .geometry(polygon)
+            .descriptors(listOf(mapsTilesetDescriptor, navTilesetDescriptor))
+            .build()
+
+        val tileRegionCancelable = tileStore.loadTileRegion(
+            "Minsk_15-16",
+            tileRegionLoadOptions,
+            { progress ->
+                Log.i("progress", progress.toString())
+            }
+        ) { expected ->
+            if (expected.isValue) {
+                // Tile region download finishes successfully
+                Log.i("download", "Tile region download finishes successfully")
+            } else {
+                Log.i("download", "Error")
+                // Handle errors that occurred during the tile region download
+            }
+        }
+        /////////////////////////////////
+//        downloadMap("Minsk_15-16")
     }
 
     override fun onStart() {
@@ -531,24 +614,7 @@ class MapActivity : AppCompatActivity() {
         maneuverView.visibility = View.INVISIBLE
 //        routeOverview.visibility = View.INVISIBLE
         tripProgressCard.visibility = View.INVISIBLE
-    }
-
-    @SuppressLint("MissingPermission")
-    private fun initNavigation() {
-        mapboxNavigation = if (MapboxNavigationProvider.isCreated()) {
-            MapboxNavigationProvider.retrieve()
-        } else {
-            MapboxNavigationProvider.create(
-                NavigationOptions.Builder(this.applicationContext)
-                    .accessToken(getString(R.string.mapbox_access_token))
-                    .build()
-            ).apply {
-                // Это важно для вызова, поскольку [LocationProvider] начнет отправлять обновления местоположения только после начала сеанса поездки.
-                startTripSession()
-                // Регистрируем наблюдателя местоположения для прослушивания обновлений местоположения, полученных от поставщика местоположения
-                registerLocationObserver(locationObserver)
-            }
-        }
+        createRoute.visibility = View.VISIBLE
     }
 
     private fun initStyle() {
@@ -562,5 +628,10 @@ class MapActivity : AppCompatActivity() {
                 true
             }*/
         }
+    }
+
+    private fun downloadMap(name: String) {
+
+
     }
 }
