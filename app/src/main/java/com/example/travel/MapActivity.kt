@@ -19,6 +19,8 @@ import com.mapbox.common.TileDataDomain
 import com.mapbox.common.TileRegionLoadOptions
 import com.mapbox.common.TileStore
 import com.mapbox.common.TileStoreOptions
+import com.mapbox.geojson.Feature
+import com.mapbox.geojson.MultiPolygon
 import com.mapbox.geojson.Point
 import com.mapbox.geojson.Polygon
 import com.mapbox.maps.*
@@ -483,7 +485,7 @@ class MapActivity : AppCompatActivity() {
             }
         }
 
-        /////////////////
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         val mapsTilesetDescriptor = offlineManager?.createTilesetDescriptor(
             TilesetDescriptorOptions.Builder()
                 .styleURI(Style.MAPBOX_STREETS)
@@ -494,34 +496,52 @@ class MapActivity : AppCompatActivity() {
 
         val navTilesetDescriptor = mapboxNavigation.tilesetDescriptorFactory.getLatest()
 
-
         val pointFirst = Point.fromLngLat(27.71402866991587, 53.96800608088429)
         val pointSecond = Point.fromLngLat(27.392335275633705, 53.83814912274236)
-
         val polygon: Polygon = Polygon.fromLngLats(listOf(listOf(pointFirst, pointSecond)))
 
+        val polygonFeatureJson =
+            """
+            {
+                "type": "Feature",
+                "properties": {},
+                "geometry": {
+                    "type": "Polygon",
+                    "coordinates": [
+                        [
+                            [27.500334033469958,53.867920268096356],
+                            [27.63680481706351,53.871462814516555],
+                            [27.628908394643876,53.92456501438775],
+                            [27.502393970104944,53.92860812977665]
+                        ]
+                    ]
+                }
+            }
+"""
+        val singleFeature = Feature.fromJson(polygonFeatureJson)
+        val polygonJSON = singleFeature.geometry() as Polygon?
 
         val tileRegionLoadOptions = TileRegionLoadOptions.Builder()
-            .geometry(polygon)
+            .geometry(polygonJSON)
             .descriptors(listOf(mapsTilesetDescriptor, navTilesetDescriptor))
             .build()
 
-        val tileRegionCancelable = tileStore.loadTileRegion(
-            "Minsk_15-16",
+        /*val tileRegionCancelable = tileStore.loadTileRegion(
+            "TOKYO",
             tileRegionLoadOptions,
             { progress ->
-                Log.i("progress", progress.toString())
+//                Log.i("progress", progress.toString())
             }
         ) { expected ->
             if (expected.isValue) {
                 // Tile region download finishes successfully
-                Log.i("download", "Tile region download finishes successfully")
+//                Log.i("download", "Tile region download finishes successfully")
             } else {
-                Log.i("download", "Error")
+//                Log.i("download", "Error")
                 // Handle errors that occurred during the tile region download
             }
-        }
-        /////////////////////////////////
+        }*/
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //        downloadMap("Minsk_15-16")
     }
 
