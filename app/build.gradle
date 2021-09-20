@@ -58,6 +58,7 @@ dependencies {
     // Material Design
     implementation "com.google.android.material:material:1.4.0"
     // MapBox
+//    implementation 'com.mapbox.maps:android:10.0.0-rc.8'
     implementation "com.mapbox.navigation:android:2.0.0-rc.1"
     implementation 'com.google.android.gms:play-services-location:18.0.0'
 

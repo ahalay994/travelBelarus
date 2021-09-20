@@ -23,13 +23,11 @@ import com.mapbox.api.directions.v5.models.DirectionsRoute
 import com.mapbox.api.directions.v5.models.RouteOptions
 import com.mapbox.bindgen.Value
 import com.mapbox.common.TileDataDomain
-import com.mapbox.common.TileRegionLoadOptions
 import com.mapbox.common.TileStore
 import com.mapbox.common.TileStoreOptions
-import com.mapbox.geojson.Feature
 import com.mapbox.geojson.Point
-import com.mapbox.geojson.Polygon
 import com.mapbox.maps.*
+import com.mapbox.maps.extension.localization.localizeLabels
 import com.mapbox.maps.plugin.LocationPuck2D
 import com.mapbox.maps.plugin.animation.camera
 import com.mapbox.maps.plugin.annotation.annotations
@@ -78,34 +76,17 @@ class MapActivity : AppCompatActivity() {
     }
 
     private lateinit var mapView: MapView
-
-    /**
-     * Точка входа в карты Mapbox, полученная из [MapView].
-     * Вам нужно получать новую ссылку на этот объект всякий раз, когда [MapView] воссоздается.
-     */
     private lateinit var mapboxMap: MapboxMap
-
-    /**
-     * Точка входа в систему навигации Mapbox. Для приложения должен быть только один экземпляр этого объекта.
-     * Вы можете использовать [MapboxNavigationProvider], чтобы помочь создать и получить этот экземпляр.
-     */
     private lateinit var mapboxNavigation: MapboxNavigation
-
-    /**
-     * Используется для выполнения переходов камеры на основе данных, сгенерированных [viewportDataSource].
-     * Сюда входят переходы от обзора маршрута к отслеживанию маршрута и постоянное обновление камеры по мере изменения местоположения.
-     */
+    var offlineManager: OfflineManager? = null
+    var initialCameraOptions: CameraOptions? = null
+    var resourceOptions: ResourceOptions? = null
+    var mapOptions: MapOptions? = null
+    var checkStateNavigation: Boolean = false
     private var navigationCamera: NavigationCamera? = null
-
-    /**
-     * Создает кадры камеры на основе данных о местоположении и маршруте для выполнения [navigationCamera].
-     */
+    /** Создает кадры камеры на основе данных о местоположении и маршруте для выполнения [navigationCamera]. */
     private var viewportDataSource: MapboxNavigationViewportDataSource? = null
-
-    /*
-    * Ниже приведены сгенерированные значения заполнения камеры, чтобы гарантировать, что маршрут хорошо вписывается в экран,
-    * в то время как другие элементы накладываются поверх карты (включая вид инструкций, кнопки и т. Д.)
-    */
+    /** Ниже приведены сгенерированные значения заполнения камеры, чтобы гарантировать, что маршрут хорошо вписывается в экран, в то время как другие элементы накладываются поверх карты (включая вид инструкций, кнопки и т. Д.) */
     private val pixelDensity = Resources.getSystem().displayMetrics.density
     private val overviewPadding: EdgeInsets by lazy {
         EdgeInsets(
@@ -139,53 +120,20 @@ class MapActivity : AppCompatActivity() {
             40.0 * pixelDensity
         )
     }
-
-    /**
-     * Создает обновления для [MapboxManeuverView], чтобы отображать инструкции по предстоящему маневру и оставшееся расстояние до точки маневра.
-     */
+    /** Создает обновления для [MapboxManeuverView], чтобы отображать инструкции по предстоящему маневру и оставшееся расстояние до точки маневра. */
     private lateinit var maneuverApi: MapboxManeuverApi
-
-    /**
-     * Создает обновления для [MapboxTripProgressView], которые включают оставшееся время и расстояние до пункта назначения.
-     */
+    /** Создает обновления для [MapboxTripProgressView], которые включают оставшееся время и расстояние до пункта назначения. */
     private lateinit var tripProgressApi: MapboxTripProgressApi
-
-    /**
-     * Создает обновления для [routeLineView] с геометрией и свойствами маршрутов, которые должны быть нарисованы на карте.
-     */
+    /** Создает обновления для [routeLineView] с геометрией и свойствами маршрутов, которые должны быть нарисованы на карте. */
     private lateinit var routeLineApi: MapboxRouteLineApi
-
-    /**
-     * Рисует линии маршрута на карте на основе данных из [routeLineApi]
-     */
+    /** Рисует линии маршрута на карте на основе данных из [routeLineApi] */
     private lateinit var routeLineView: MapboxRouteLineView
-
-    /**
-     * Создает обновления для [routeArrowView] с геометрией и свойствами стрелок маневра, которые должны быть нарисованы на карте.
-     */
+    /** Создает обновления для [routeArrowView] с геометрией и свойствами стрелок маневра, которые должны быть нарисованы на карте. */
     private val routeArrowApi: MapboxRouteArrowApi = MapboxRouteArrowApi()
-
-    /**
-     * Рисует стрелки маневра на карте на основе данных [routeArrowApi].
-     */
+    /** Рисует стрелки маневра на карте на основе данных [routeArrowApi]. */
     private lateinit var routeArrowView: MapboxRouteArrowView
-
-    /**
-     * OfflineManager
-     */
-    var offlineManager: OfflineManager? = null
-
-    /**
-     * TileStore
-     */
-//    private lateinit var tileStore: TileStore
-
-    /**
-     * [NavigationLocationProvider] - служебный класс, который помогает предоставлять обновления местоположения,
-     * сгенерированные SDK навигации, в SDK Maps для обновления индикатора местоположения пользователя на карте.
-     */
+    /** [NavigationLocationProvider] - служебный класс, который помогает предоставлять обновления местоположения, сгенерированные SDK навигации, в SDK Maps для обновления индикатора местоположения пользователя на карте. */
     private val navigationLocationProvider = NavigationLocationProvider()
-
     /**
      * Получает уведомления с обновлениями местоположения.
      *
@@ -194,29 +142,24 @@ class MapActivity : AppCompatActivity() {
      */
     private val locationObserver = object : LocationObserver {
         var firstLocationUpdateReceived = false
-
-        /**
-         * Вызывается, как только [Location] становится доступным.
-         */
+        /** Вызывается, как только [Location] становится доступным. */
         override fun onRawLocationChanged(rawLocation: Location) {
             Log.i("rawLocation", rawLocation.toString())
-            // Не реализовано в этом примере.
-            // Однако, если вы хотите, вы также можете использовать этот обратный вызов для получения обновлений местоположения,
-            // но, как следует из названия, это необработанные обновления местоположения, которые обычно шумны.
         }
 
-        /**
-         * Обеспечивает наилучшее возможное обновление местоположения, привязанное к маршруту или сопоставленное с дорогой, если это возможно.
-         */
-        override fun onEnhancedLocationChanged(
-            enhancedLocation: Location,
-            keyPoints: List<Location>
-        ) {
+        /** Обеспечивает наилучшее возможное обновление местоположения, привязанное к маршруту или сопоставленное с дорогой, если это возможно. */
+        override fun onEnhancedLocationChanged(enhancedLocation: Location, keyPoints: List<Location>) {
             // обновить местоположение шайбы на карте
             navigationLocationProvider.changePosition(
                 location = enhancedLocation,
                 keyPoints = keyPoints
             )
+
+            if (checkStateNavigation) {
+                enhancedLocation.latitude = coordinationPoint?.latitude() ?: enhancedLocation.latitude
+                enhancedLocation.longitude = coordinationPoint?.longitude() ?: enhancedLocation.longitude
+                enhancedLocation.speed = 5.0F
+            }
 
             // обновить положение камеры с учетом нового местоположения
             if (viewportDataSource != null) {
@@ -317,6 +260,8 @@ class MapActivity : AppCompatActivity() {
         }
     }
 
+    var coordinationPoint: Point? = null
+    var mapInitOptions: MapInitOptions? = null
     @SuppressLint("MissingPermission")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -325,7 +270,7 @@ class MapActivity : AppCompatActivity() {
         val lat = intent.getStringExtra(LAT)
         val lon = intent.getStringExtra(LON)
 
-        val coordinationPoint: Point? = Point.fromLngLat(lon!!.toDouble(), lat!!.toDouble())
+        coordinationPoint = Point.fromLngLat(lon!!.toDouble(), lat!!.toDouble())
 
         /*** Запрос на получение доступа к месторасположению ***/
         GlobalHelper.accessLocation(this)
@@ -355,7 +300,7 @@ class MapActivity : AppCompatActivity() {
             .routingTilesOptions(routingTilesOptions)
             .build()
 
-        /*** Init Mapbox Navigationu ***/
+        /*** Init Mapbox Navigation ***/
         mapboxNavigation = if (MapboxNavigationProvider.isCreated()) {
             MapboxNavigationProvider.retrieve()
         } else {
@@ -371,14 +316,14 @@ class MapActivity : AppCompatActivity() {
 
         /*** Initialisation map ***/
         // set resource options
-        val resourceOptions = ResourceOptions.Builder()
+        resourceOptions = ResourceOptions.Builder()
             .accessToken(getString(R.string.mapbox_access_token))
             .tileStore(tileStore)
             .tileStoreUsageMode(TileStoreUsageMode.READ_AND_UPDATE)
             .build()
 
         // set map options
-        val mapOptions = MapOptions.Builder().applyDefaultParams(this)
+        mapOptions = MapOptions.Builder().applyDefaultParams(this)
             .constrainMode(ConstrainMode.HEIGHT_ONLY)
             .glyphsRasterizationOptions(
                 GlyphsRasterizationOptions.Builder()
@@ -389,20 +334,21 @@ class MapActivity : AppCompatActivity() {
             .build()
 
         // initial camera options
-        val initialCameraOptions = CameraOptions.Builder()
+        initialCameraOptions = CameraOptions.Builder()
             .center(coordinationPoint)
             .zoom(13.0)
             .bearing(120.0)
             .build()
 
-        val mapInitOptions = MapInitOptions(this, resourceOptions, mapOptions, MapInitOptions.defaultPluginList, initialCameraOptions, true)
-        mapView = MapView(this, mapInitOptions)
+        mapInitOptions = MapInitOptions(this, resourceOptions!!, mapOptions!!, MapInitOptions.defaultPluginList, initialCameraOptions, true)
+        mapView = MapView(this, mapInitOptions!!)
         mapViewContainer.addView(mapView)
 
         // инициализация стилей карты
         mapView.getMapboxMap().loadStyleUri(
             Style.MAPBOX_STREETS
         ) {
+            it.localizeLabels(resources.configuration.locale)
             bitmapFromDrawableRes(
                 this@MapActivity,
                 R.drawable.ic_baseline_add_location_alt_24
@@ -410,17 +356,12 @@ class MapActivity : AppCompatActivity() {
                 val annotationApi = mapView.annotations
                 val pointAnnotationManager = annotationApi.createPointAnnotationManager(mapView)
                 val pointAnnotationOptions: PointAnnotationOptions = PointAnnotationOptions()
-                    .withPoint(Point.fromLngLat(27.559299665291515, 53.900520195244425))
+                    .withPoint(coordinationPoint!!)
                     .withIconImage(it)
                 pointAnnotationManager.create(pointAnnotationOptions)
             }
-
-            addAnnotationToMap()
         }
         /*** End Initialisation map ***/
-
-        mapboxMap = mapView.getMapboxMap()
-
         // инициализировать шайбу местоположения
         mapView.location.apply {
             this.locationPuck = LocationPuck2D(
@@ -436,12 +377,14 @@ class MapActivity : AppCompatActivity() {
         /*** Прокладываем маршрут ***/
         createRoute.setOnClickListener {
             if (coordinationPoint != null) {
-                createRouteFun(coordinationPoint)
+                createRouteFun(coordinationPoint!!)
             }
         }
 
+        mapboxMap = mapView.getMapboxMap()
         ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-        /*val mapsTilesetDescriptor = offlineManager?.createTilesetDescriptor(
+        /*
+        val mapsTilesetDescriptor = offlineManager?.createTilesetDescriptor(
             TilesetDescriptorOptions.Builder()
                 .styleURI(Style.MAPBOX_STREETS)
                 .minZoom(15)
@@ -481,7 +424,6 @@ class MapActivity : AppCompatActivity() {
             .geometry(polygonJSON)
             .descriptors(listOf(mapsTilesetDescriptor, navTilesetDescriptor))
             .build()*/
-
         // TODO ERROR
         /*val tileRegionCancelable = tileStore.loadTileRegion(
             "TOKYO",
@@ -499,7 +441,6 @@ class MapActivity : AppCompatActivity() {
             }
         }*/
         ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//        downloadMap("Minsk_15-16")
     }
 
     override fun onStart() {
@@ -584,18 +525,22 @@ class MapActivity : AppCompatActivity() {
     }
 
     private fun clearRouteAndStopNavigation() {
+        checkStateNavigation = false
+        viewportDataSource = null
+        mapView = MapView(this, mapInitOptions!!)
         // очистка
         mapboxNavigation.setRoutes(listOf())
-
         // скрыть элементы пользовательского интерфейса
         maneuverView.visibility = View.INVISIBLE
-//        routeOverview.visibility = View.INVISIBLE
+        routeOverview.visibility = View.INVISIBLE
+        recenter.visibility = View.INVISIBLE
         tripProgressCard.visibility = View.INVISIBLE
         createRoute.visibility = View.VISIBLE
     }
 
     @SuppressLint("MissingPermission")
     private fun createRouteFun(coordinationPoint: Point) {
+        checkStateNavigation = false
         // инициализировать навигационную камеру
         viewportDataSource = MapboxNavigationViewportDataSource(mapboxMap)
         navigationCamera = NavigationCamera(
@@ -673,6 +618,7 @@ class MapActivity : AppCompatActivity() {
         // инициализировать взаимодействие просмотра
         stop.setOnClickListener {
             clearRouteAndStopNavigation()
+            navigationCamera?.requestNavigationCameraToOverview()
         }
         recenter.setOnClickListener {
             navigationCamera?.requestNavigationCameraToFollowing()
@@ -692,30 +638,6 @@ class MapActivity : AppCompatActivity() {
     }
 
     /*** Create point ***/
-    private fun addAnnotationToMap() {
-        // Создайте экземпляр Annotation API и получите PointAnnotationManager.
-        bitmapFromDrawableRes(
-            this@MapActivity,
-            R.drawable.ic_baseline_location_searching_24
-        )?.let {
-            val annotationApi = mapView.annotations
-            val pointAnnotationManager = annotationApi.createPointAnnotationManager(mapView)
-            // Задайте параметры для результирующего слоя символов.
-            val pointAnnotationOptions: PointAnnotationOptions = PointAnnotationOptions()
-                // Определите географические координаты.
-                .withPoint(Point.fromLngLat(18.06, 59.31))
-                // Укажите растровое изображение, назначенное аннотации точки
-                // Растровое изображение будет добавлено в стиль карты автоматически..
-                .withIconImage(it)
-                // Добавьте полученную точку аннотации на карту.
-            pointAnnotationManager.create(pointAnnotationOptions)
-
-            val position = CameraOptions.Builder()
-                .center(Point.fromLngLat(51.50550, -0.07520))
-                .zoom(10.0)
-                .build()
-        }
-    }
     private fun bitmapFromDrawableRes(context: Context, @DrawableRes resourceId: Int) = convertDrawableToBitmap(AppCompatResources.getDrawable(context, resourceId))
     private fun convertDrawableToBitmap(sourceDrawable: Drawable?): Bitmap? {
         if (sourceDrawable == null) {
