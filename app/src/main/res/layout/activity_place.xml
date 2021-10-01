@@ -63,7 +63,7 @@
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
                     tools:ignore="MissingConstraints"
-                    android:layout_marginBottom="10dp"/>
+                    android:layout_marginBottom="40dp"/>
 
             </androidx.constraintlayout.widget.ConstraintLayout>
 
@@ -79,6 +79,51 @@
 
     <include layout="@layout/content_place" />
 
+    <LinearLayout
+        android:id="@+id/dial"
+        android:layout_gravity="bottom|center_horizontal"
+        android:visibility="invisible"
+        app:layout_anchor="@id/fab"
+        app:layout_anchorGravity="bottom|end"
+        app:layout_behavior=".helpers.EmitExpandableTransformationBehavior"
+        android:layout_height="wrap_content"
+        android:layout_width="wrap_content"
+        android:orientation="vertical">
+
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/fabMap"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="@dimen/fab_margin"
+            app:layout_anchor="@id/app_bar"
+            app:layout_anchorGravity="bottom|end"
+            app:srcCompat="@drawable/ic_baseline_map_24"
+            android:layout_marginTop="10dp"
+            tools:ignore="ContentDescription" />
+
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/fabTrain"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="@dimen/fab_margin"
+            app:layout_anchor="@id/app_bar"
+            app:layout_anchorGravity="bottom|end"
+            app:srcCompat="@drawable/train_black"
+            android:layout_marginTop="10dp"
+            tools:ignore="ContentDescription" />
+
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/fabBus"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="@dimen/fab_margin"
+            app:layout_anchor="@id/app_bar"
+            app:layout_anchorGravity="bottom|end"
+            app:srcCompat="@drawable/bus_black"
+            android:layout_marginTop="10dp"
+            tools:ignore="ContentDescription" />
+    </LinearLayout>
+
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fab"
         android:layout_width="wrap_content"
@@ -86,7 +131,8 @@
         android:layout_marginEnd="@dimen/fab_margin"
         app:layout_anchor="@id/app_bar"
         app:layout_anchorGravity="bottom|end"
-        app:srcCompat="@drawable/ic_baseline_map_24"
-        tools:ignore="ContentDescription" />
+        app:srcCompat="@drawable/route"
+        tools:ignore="ContentDescription"
+    />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

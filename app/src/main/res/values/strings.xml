@@ -112,4 +112,7 @@
     </string>
     <!-- TODO: Remove or change this placeholder text -->
     <string name="hello_blank_fragment">Hello blank fragment</string>
+
+    <string name="ya_rasp_api_key">2f9137ff-8e9a-48bc-a3a7-be7963c921b9</string>
+    <string name="ya_rasp_api_link">https://api.rasp.yandex.net/v3.0/</string>
 </resources>

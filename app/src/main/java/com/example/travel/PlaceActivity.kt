@@ -38,20 +38,45 @@ class PlaceActivity : AppCompatActivity() {
 
         setSupportActionBar(findViewById(R.id.toolbar))
         binding.toolbarLayout.title = place.name
-        binding.fab.setOnClickListener { view ->
+
+        binding.fabMap.setOnClickListener { view ->
             val placeIntent = Intent(this, MapActivity::class.java)
             placeIntent.putExtra(MapActivity.LAT, place.lat)
             placeIntent.putExtra(MapActivity.LON, place.lon)
+            closeFabs()
             startActivity(placeIntent)
+        }
+
+        binding.fabTrain.setOnClickListener { view ->
+            val placeIntent = Intent(this, TrainActivity::class.java)
+            startActivity(placeIntent)
+        }
+
+        binding.fab.setOnClickListener {
+            if (binding.fab.isExpanded) {
+                closeFabs()
+            } else {
+                openFabs()
+            }
         }
 
         getData();
         createSlider();
     }
 
+    fun closeFabs() {
+        binding.fab.setImageResource(R.drawable.route)
+        fab.isExpanded = !fab.isExpanded
+    }
+
+    fun openFabs() {
+        binding.fab.setImageResource(R.drawable.ic_baseline_close_black_24)
+        fab.isExpanded = !fab.isExpanded
+    }
+
     fun getData() {
-        cityName.text = place.city_name
-        description.text = place.description
+        cityName!!.text = place.city_name
+        description!!.text = place.description
     }
 
     fun createSlider() {
