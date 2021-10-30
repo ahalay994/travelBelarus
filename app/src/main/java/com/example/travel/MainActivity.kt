@@ -1,5 +1,6 @@
 package com.example.travel
 
+import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.res.ColorStateList
 import android.graphics.drawable.ColorDrawable
@@ -17,6 +18,7 @@ import androidx.core.content.ContextCompat
 import com.example.travel.`interface`.OnBottomSheetCallbacks
 import com.example.travel.adapters.PlacesAdapter
 import com.example.travel.helpers.DatabaseHandler
+import com.example.travel.helpers.SharedPreference
 import com.example.travel.models.PlacesModelClass
 import com.example.travel.models.TagsModelClass
 import com.google.android.material.bottomsheet.BottomSheetBehavior
@@ -24,19 +26,31 @@ import com.google.android.material.button.MaterialButton
 import com.google.android.material.chip.Chip
 import com.google.android.material.slider.RangeSlider
 import kotlinx.android.synthetic.main.activity_main.*
-import kotlinx.android.synthetic.main.fragment_window.*
+import kotlinx.android.synthetic.main.fragment_window.viewList
 
 class MainActivity : AppCompatActivity() {
+    final val PREF_SORT = "SORT";
+    final val PREF_PRICE_MIN = "PRICE_MIN"
+    final val PREF_PRICE_MAX = "PRICE_MAX"
+
     private var listener: OnBottomSheetCallbacks? = null
     var optionsMenu: Menu? = null
     var actionbar: ActionBar? = null
     var VIEW_TYPE = 0
+
+    var filerTags:MutableMap<Int, Int> = HashMap()
+    var filterSort = 0
+    var filterPrice = arrayListOf<Int>(0, 0)
+
+    var sharedPreference: SharedPreference? = null
 
     private var mBottomSheetBehavior: BottomSheetBehavior<View?>? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        sharedPreference = SharedPreference(this)
 
         actionbar = supportActionBar
         if (actionbar !== null) {
@@ -53,14 +67,27 @@ class MainActivity : AppCompatActivity() {
         //removing the shadow from the action bar
         supportActionBar?.elevation = 0f
 
+        if (sharedPreference?.getValueInt(PREF_SORT) == 0) {
+            materialButtonToggleGroupSort.check(R.id.mostPopularButton)
+            toggleButton(findViewById(R.id.mostPopularButton))
+        } else {
+            materialButtonToggleGroupSort.check(R.id.closestButton)
+            toggleButton(findViewById(R.id.closestButton))
+        }
+
         configureBackdrop()
         setToggleMenuButtons()
         setRangerSlider()
+        handleCheckedButtonsInSort()
 
-        getPlaces()
-        addListChips()
+        init()
 
         submitPlaces()
+    }
+
+    private fun init() {
+        addListChips()
+        getPlaces()
     }
 
     fun setOnBottomSheetCallbacks(onBottomSheetCallbacks: OnBottomSheetCallbacks) {
@@ -68,14 +95,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun openBottomSheet() {
-        mBottomSheetBehavior?.state = BottomSheetBehavior.STATE_EXPANDED
-        if (actionbar !== null) {
-            optionsMenu!!.findItem(R.id.action_configuration).setVisible(true)
-            actionbar!!.setDisplayHomeAsUpEnabled(false)
-        }
-    }
-
-    fun closeBottomSheet() {
         mBottomSheetBehavior?.state = BottomSheetBehavior.STATE_COLLAPSED
         if (actionbar !== null) {
             actionbar!!.setDisplayHomeAsUpEnabled(true)
@@ -83,22 +102,57 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    fun closeBottomSheet() {
+        mBottomSheetBehavior?.state = BottomSheetBehavior.STATE_EXPANDED
+        if (actionbar !== null) {
+            optionsMenu!!.findItem(R.id.action_configuration).setVisible(true)
+            actionbar!!.setDisplayHomeAsUpEnabled(false)
+        }
+    }
+
     // Клик по кнопкам в контейнере
     private fun setToggleMenuButtons() {
-        materialButtonToggleGroupSort.addOnButtonCheckedListener { _, checkedId, _ ->
+        materialButtonToggleGroupSort.addOnButtonCheckedListener { group, checkedId, isChecked ->
+            filterSort = if (checkedId == R.id.mostPopularButton) 0 else 1
             toggleButton(findViewById(checkedId))
         }
     }
 
     // Изменение ренджбара (стоимости)
+    @SuppressLint("SetTextI18n")
     private fun setRangerSlider() {
+        val databaseHandler = DatabaseHandler(this)
+        val price = databaseHandler.price()
+
+        var priceMin = 0
+        var priceMax = 0
+
+        val storagePriseMin = sharedPreference?.getValueInt(PREF_PRICE_MIN)
+        val storagePriseMax = sharedPreference?.getValueInt(PREF_PRICE_MAX)
+
+        if (storagePriseMin == null && storagePriseMax == null) {
+            sharedPreference?.save(PREF_PRICE_MIN, price[0])
+            sharedPreference?.save(PREF_PRICE_MAX, price[1])
+        }
+        priceMin = sharedPreference?.getValueInt(PREF_PRICE_MIN)!!
+        priceMax = sharedPreference?.getValueInt(PREF_PRICE_MAX)!!
+
+        if (price[0] > priceMin) priceMin = price[0]
+        if (price[1] < priceMax || priceMax == 0) priceMax = price[1]
+
+        lengthSlider.valueFrom = price[0].toFloat()
+        lengthSlider.valueTo = price[1].toFloat()
+        lengthSlider.values = arrayOf(priceMin.toFloat(), priceMax.toFloat()).toMutableList()
+        lengthTextView.text = "${priceMin.toFloat()} BYN - ${priceMax.toFloat()} BYN"
+
+        filterPrice[0] = priceMin
+        filterPrice[1] = priceMax
+
         lengthSlider.addOnChangeListener { rangeSlider, value, fromUser ->
-            // Responds to when slider's value is changed
-            lengthTextView.text =
-                "${rangeSlider.values[0].toInt()} BYN - ${rangeSlider.values[1].toInt()} BYN"
-            if (rangeSlider.values[1].toInt() == 150) {
-                lengthTextView.text = lengthTextView.text.toString() + "+"
-            }
+            lengthTextView.text = "${rangeSlider.values[0].toInt()} BYN - ${rangeSlider.values[1].toInt()} BYN"
+
+            filterPrice[0] = rangeSlider.values[0].toInt()
+            filterPrice[1] = rangeSlider.values[1].toInt()
         }
 
         lengthSlider.addOnSliderTouchListener(object : RangeSlider.OnSliderTouchListener {
@@ -116,10 +170,10 @@ class MainActivity : AppCompatActivity() {
     private fun handleCheckedButtonsInSort() {
         when {
             materialButtonToggleGroupSort.checkedButtonIds.contains(R.id.mostPopularButton) -> {
-
+                filterSort = 0
             }
             materialButtonToggleGroupSort.checkedButtonIds.contains(R.id.closestButton) -> {
-
+                filterSort = 1
             }
         }
     }
@@ -185,15 +239,15 @@ class MainActivity : AppCompatActivity() {
                 true
             }
             R.id.action_configuration -> {
-                closeBottomSheet()
-                true
-            }
-            android.R.id.home -> {
                 openBottomSheet()
                 true
             }
+            android.R.id.home -> {
+                closeBottomSheet()
+                true
+            }
             R.id.action_exit -> {
-                Toast.makeText(applicationContext, "click on exit", Toast.LENGTH_LONG).show()
+//                Toast.makeText(applicationContext, "click on exit", Toast.LENGTH_LONG).show()
                 return true
             }
             else -> super.onOptionsItemSelected(item)
@@ -204,7 +258,11 @@ class MainActivity : AppCompatActivity() {
     fun getPlaces() {
         val databaseHandler = DatabaseHandler(this)
 
-        val place: List<PlacesModelClass> = databaseHandler.viewPlace()
+        val place: List<PlacesModelClass> = databaseHandler.viewPlace(
+            sharedPreference!!.getValueInt(PREF_SORT),
+            sharedPreference!!.getValueInt(PREF_PRICE_MIN),
+            sharedPreference!!.getValueInt(PREF_PRICE_MAX)
+        )
         val placeArrayId = Array(place.size) { "0" }
         val placeArrayTagId = Array(place.size) { "null" }
         val placeArrayCityId = Array(place.size) { "0" }
@@ -245,39 +303,43 @@ class MainActivity : AppCompatActivity() {
         viewList.adapter = placesAdapter
 
         viewList.setOnItemClickListener(OnItemClickListener { parent, view, position, id ->
-            val placeIntent = Intent(this, PlaceActivity::class.java)
-            placeIntent.putExtra(PlaceActivity.ID, placeArrayId[position].toInt())
-            startActivity(placeIntent)
+            moreCLick(PlaceActivity.ID, placeArrayId[position].toInt())
         })
+
+//        btnMore.setOnClickListener {
+//            moreCLick(PlaceActivity.ID, PlaceActivity.ID.toInt())
+//        }
+
+    }
+
+    private fun moreCLick(id: String, _id: Int) {
+        val placeIntent = Intent(this, PlaceActivity::class.java)
+        placeIntent.putExtra(id, _id)
+        startActivity(placeIntent)
     }
 
     // Получить теги
     private fun addListChips() {
         try {
+            chipGroup.removeAllViews()
             val inflater = LayoutInflater.from(this)
 
             val databaseHandler = DatabaseHandler(this)
             val tag: List<TagsModelClass> = databaseHandler.viewTag()
+
             for (e in tag) {
                 val chip = inflater.inflate(R.layout.layout_chip_entry, chipGroup, false) as Chip
+
+                chip.id = e.tagId
                 chip.text = e.tagName
                 chip.isChecked = e.tagActive == 1
-
                 chipGroup.addView(chip)
 
-                chip.setOnClickListener {
-                    Log.i("setOnClickListener", it.toString())
-                }
-
-                chip.setOnCloseIconClickListener {
-                    Log.i("setOnCloseIconClickList", it.toString())
-                }
+                filerTags[chip.id] = e.tagActive
 
                 chip.setOnCheckedChangeListener { chip, isChecked ->
-                    Log.i("id", chip.id.toString())
-                    // Responds to chip checked/unchecked
                     chip?.let { chipView ->
-                        Toast.makeText(this, chip.text, Toast.LENGTH_SHORT).show()
+                        if (isChecked) filerTags[chip.id] = 1 else filerTags[chip.id] = 0
                     } ?: kotlin.run {
                     }
                 }
@@ -291,7 +353,30 @@ class MainActivity : AppCompatActivity() {
 
     fun submitPlaces() {
         submitFilter.setOnClickListener {
+            sharedPreference?.save(PREF_PRICE_MIN, filterPrice[0])
+            sharedPreference?.save(PREF_PRICE_MAX, filterPrice[1])
+            sharedPreference?.save(PREF_SORT, filterSort)
 
+            val databaseHandler = DatabaseHandler(this)
+
+            databaseHandler.updateTag(1, filerTags[1]!!)
+            databaseHandler.updateTag(2, filerTags[2]!!)
+            databaseHandler.updateTag(3, filerTags[3]!!)
+            databaseHandler.updateTag(4, filerTags[4]!!)
+            databaseHandler.updateTag(5, filerTags[5]!!)
+            databaseHandler.updateTag(6, filerTags[6]!!)
+            databaseHandler.updateTag(7, filerTags[7]!!)
+            databaseHandler.updateTag(8, filerTags[8]!!)
+            databaseHandler.updateTag(9, filerTags[9]!!)
+            databaseHandler.updateTag(10, filerTags[10]!!)
+            databaseHandler.updateTag(11, filerTags[11]!!)
+            databaseHandler.updateTag(12, filerTags[12]!!)
+            databaseHandler.updateTag(13, filerTags[13]!!)
+            databaseHandler.updateTag(14, filerTags[14]!!)
+            databaseHandler.updateTag(15, filerTags[15]!!)
+
+            init()
+            closeBottomSheet()
         }
     }
 }

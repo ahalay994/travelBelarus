@@ -24,7 +24,7 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.*
 
-class SegmentAdapter(private var context: Context?, private var data: ArrayList<Any>) : BaseAdapter() {
+class BusAdapter(private var context: Context?, private var data: ArrayList<Any>) : BaseAdapter() {
     override fun getCount(): Int {
         return data.size
     }
@@ -48,7 +48,7 @@ class SegmentAdapter(private var context: Context?, private var data: ArrayList<
     @SuppressLint("NewApi", "SimpleDateFormat", "SetTextI18n")
     override fun getView(position: Int, convertView: View?, parent: ViewGroup?): View {
         var view = convertView
-        if (view == null) view = LayoutInflater.from(context).inflate(R.layout.item_ya_train_list, parent, false)
+        if (view == null) view = LayoutInflater.from(context).inflate(R.layout.item_ya_list, parent, false)
 
         val mapper = jacksonObjectMapper()
         /*** У нас есть полный сегмент ***/
@@ -57,20 +57,20 @@ class SegmentAdapter(private var context: Context?, private var data: ArrayList<
         if (segment.has_transfers == false) {
             view!!.findViewById<LinearLayout>(R.id.no_transfers).visibility = View.VISIBLE
             view.findViewById<LinearLayout>(R.id.transfers).visibility = View.GONE
-            /*** Получили полноценный трейд ***/
+            /** Получили полноценный трейд **/
             val thread = mapper.readValue<Thread>(Gson().toJson(segment.thread))
-            /*** Получаю данные о компании перевозчике ***/
+            /** Получаю данные о компании перевозчике **/
             val carrier = mapper.readValue<Carrier>(Gson().toJson(thread.carrier))
             var logo = carrier.logo
             if (logo == null) logo = carrier.logo_svg
-            /*** Получа данные о станции отправления ***/
+            /** Получа данные о станции отправления **/
             val fromStation = mapper.readValue<Station>(Gson().toJson(segment.from))
             val toStation = mapper.readValue<Station>(Gson().toJson(segment.to))
 
             val departure = LocalDateTime.parse(segment.departure, DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssZZZZZ")).format(DateTimeFormatter.ofPattern("HH:mm"))
             val arrival = LocalDateTime.parse(segment.arrival, DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssZZZZZ")).format(DateTimeFormatter.ofPattern("HH:mm"))
 
-            /*** Заполняем layout ***/
+            /** Заполняем layout **/
             view.findViewById<TextView>(R.id.title).text = "${thread.title} (${getType(thread.transport_type)})"
             view.findViewById<TextView>(R.id.departure).text = "Время отправления: $departure (${fromStation.title})"
             view.findViewById<TextView>(R.id.arrival).text = "Время прибытия: $arrival (${toStation.title})"
@@ -110,18 +110,33 @@ class SegmentAdapter(private var context: Context?, private var data: ArrayList<
             val thread2 = mapper.readValue<Thread>(Gson().toJson(detailTo.thread))
             val carrier2 = mapper.readValue<Carrier>(Gson().toJson(thread2.carrier))
 
+
+            var departureFromStationTitle = departureFromStation.title
+            if (departureFromStationTitle === "") departureFromStationTitle = "${departureFromStation.popular_title} - ${departureFromStation.station_type_name}"
+
+            var transferToTitle = transferTo.title
+            if (transferToTitle === "") transferToTitle = "${transferTo.popular_title} - ${transferTo.station_type_name}"
+
+            var arrivalToStationTitle = arrivalToStation.title
+            if (arrivalToStationTitle === "") arrivalToStationTitle = "${arrivalToStation.popular_title} - ${arrivalToStation.station_type_name}"
+
             /*** Получа данные о станции отправления ***/
             view.findViewById<TextView>(R.id.main_title).text = "${fromStation1.title} - ${toStation1.title} - ${toStation2.title}"
 
-            view.findViewById<TextView>(R.id.first_transfer_title).text = "${thread1.title} (${getType(thread1.transport_type)})"
-            view.findViewById<TextView>(R.id.first_transfer_time_from).text = "Время отправления: $departureFrom (${departureFromStation.title})"
-            view.findViewById<TextView>(R.id.first_transfer_time_to).text = "Время прибытия: $arrivalFrom (${transferTo.title})"
-            view.findViewById<TextView>(R.id.first_transfer_number).text = "${carrier1.title} (${thread1.number})"
+            view.findViewById<TextView>(R.id.first_transfer_title).text = "${thread1.title}"
+            view.findViewById<TextView>(R.id.first_transfer_time_from).text = "Время отправления: $departureFrom (${departureFromStationTitle})"
+            view.findViewById<TextView>(R.id.first_transfer_time_to).text = "Время прибытия: $arrivalFrom (${transferToTitle})"
 
-            view.findViewById<TextView>(R.id.second_transfer_title).text = "${thread2.title} (${getType(thread2.transport_type)})"
-            view.findViewById<TextView>(R.id.second_transfer_time_from).text = "Время отправления: $departureTo (${transferTo.title})"
-            view.findViewById<TextView>(R.id.second_transfer_time_to).text = "Время прибытия: $arrivalTo (${arrivalToStation.title})"
-            view.findViewById<TextView>(R.id.second_transfer_number).text = "${carrier2.title} (${thread2.number})"
+            if (carrier1 === null) view.findViewById<TextView>(R.id.first_transfer_number).visibility = View.GONE else view.findViewById<TextView>(R.id.first_transfer_number).text = "${carrier1.title}"
+
+            view.findViewById<TextView>(R.id.second_transfer_title).text = "${thread2.title}"
+            view.findViewById<TextView>(R.id.second_transfer_time_from).text = "Время отправления: $departureTo (${transferToTitle})"
+            view.findViewById<TextView>(R.id.second_transfer_time_to).text = "Время прибытия: $arrivalTo (${arrivalToStationTitle})"
+            if (carrier2 === null) {
+                view.findViewById<TextView>(R.id.second_transfer_number).visibility = View.GONE
+            } else {
+                view.findViewById<TextView>(R.id.second_transfer_number).text = "${carrier2.title}"
+            }
 
             Picasso.get()
                 .load(theme(thread1.transport_type))

@@ -115,4 +115,5 @@
 
     <string name="ya_rasp_api_key">2f9137ff-8e9a-48bc-a3a7-be7963c921b9</string>
     <string name="ya_rasp_api_link">https://api.rasp.yandex.net/v3.0/</string>
+    <string name="msg_switch_network">Включите GPS для более точного определения вашего месторасположения</string>
 </resources>

@@ -8,7 +8,6 @@ import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteException
 import android.database.sqlite.SQLiteOpenHelper
 import android.util.Log
-import com.example.travel.fragments.WindowFragment
 import com.example.travel.models.PlacesModelClass
 import com.example.travel.models.TagsModelClass
 
@@ -17,24 +16,16 @@ import com.example.travel.models.TagsModelClass
 //CREATE TABLE cities (id INTEGER PRIMARY KEY, region_id INTEGER, name TEXT, description TEXT, image TEXT, tags TEXT, likes FLOAT, lat TEXT, lon, TEXT, is_car INTEGER, is_train INTEGER, is_bus, is_minibus);
 //CREATE TABLE places (id INTEGER PRIMARY KEY, name TEXT, description TEXT, image TEXT, city_id INTEGER, lat TEXT, lon, TEXT, price FLOAT);
 
-
-/*
-//TODO
-// Группировка по городам
-// Сортировка по цене и расстоянию, алфавиту
-//
-// ******************************************
-//TODO
-// Цена: берётся средняя по местам в городе
-*/
-
-
 class DatabaseHandler(context: Context) :
     SQLiteOpenHelper(context, DATABASE_NAME, null, DATABASE_VERSION) {
     companion object {
         private val DATABASE_VERSION = 1
         private val DATABASE_NAME = "Travel"
     }
+
+    val all: Cursor
+        get() = this.writableDatabase.query(DATABASE_NAME, null, null, null, null, null, null)
+
 
     override fun onCreate(db: SQLiteDatabase?) {
         db?.execSQL("CREATE TABLE tags (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, is_active INTEGER)")
@@ -53,10 +44,35 @@ class DatabaseHandler(context: Context) :
         onCreate(db)
     }
 
+    fun price(): Array<Int> {
+        val data: Array<Int> = arrayOf(0, 0)
+        val selectQuery = "SELECT MIN(price) as min, MAX(price) as max FROM places"
+        val db = this.readableDatabase
+        var cursor: Cursor? = null
+        try {
+            cursor = db.rawQuery(selectQuery, null)
+        } catch (e: SQLiteException) {
+            db.execSQL(selectQuery)
+            return arrayOf()
+        }
+        if (cursor.moveToFirst()) {
+            do {
+                data.set(0, cursor.getInt(cursor.getColumnIndex("min")))
+                data.set(1, cursor.getInt(cursor.getColumnIndex("max")))
+            } while (cursor.moveToNext())
+        }
+
+        return data
+    }
+
     @SuppressLint("Recycle")
-    fun viewTag(): List<TagsModelClass> {
+    fun viewTag(sort: Boolean = false): List<TagsModelClass> {
         val empList: ArrayList<TagsModelClass> = ArrayList()
-        val selectQuery = "SELECT  * FROM tags"
+        val selectQuery = if (sort) {
+            "SELECT  * FROM tags WHERE is_active = 1"
+        } else {
+            "SELECT  * FROM tags"
+        }
         val db = this.readableDatabase
         var cursor: Cursor? = null
         try {
@@ -77,11 +93,13 @@ class DatabaseHandler(context: Context) :
                 empList.add(emp)
             } while (cursor.moveToNext())
         }
+
+//        addCity()
+//        addPlace()
         return empList
     }
 
     //method to insert data
-//    fun addTag(tag: TagsModelClass):Long {
     fun addTag(): Long {
         val arr = arrayOf(
             "Парк",
@@ -112,16 +130,25 @@ class DatabaseHandler(context: Context) :
         return 1
     }
 
-    fun updateTag(tag: TagsModelClass): Int {
-        val db = this.writableDatabase
-        val contentValues = ContentValues()
-        contentValues.put("id", tag.tagId)
-        contentValues.put("name", tag.tagName)
-        contentValues.put("is_active", tag.tagActive)
+    fun updateTagById(id: Int,
+                   name: String,
+                   is_active: Int): Int {
+        val cv = ContentValues()
+        cv.put("name", name)
+        cv.put("is_active", is_active)
 
-        val success = db.update("tags", contentValues, "id=" + tag.tagId, null)
-        db.close()
-        return success
+        val whereclause = "id=?"
+        val whereargs = arrayOf(id.toString())
+        return this.writableDatabase.update("tags", cv, whereclause, whereargs)
+    }
+
+    fun updateTag(id: Int, isActive: Int) {
+        val values = ContentValues()
+
+        values.put("is_active", isActive)
+
+        val db = this.writableDatabase
+        db.update("tags", values, "id=?", arrayOf(id.toString()))
     }
 
     fun addRegion(): Long {
@@ -149,7 +176,7 @@ class DatabaseHandler(context: Context) :
 //        insert into cities(region_id, name, description, image, likes, lat, lon, is_car, is_train, is_bus, is_minibus) values (5, "", "", "", 0, "", "", 1, 1, 1, 1 )
 
         val contentValues = ContentValues()
-        contentValues.put("region_id", 5)
+        /*contentValues.put("region_id", 5)
         contentValues.put("name", "Минск")
         contentValues.put(
             "description",
@@ -163,7 +190,21 @@ class DatabaseHandler(context: Context) :
         contentValues.put("is_train", 1)
         contentValues.put("is_bus", 1)
         contentValues.put("is_minibus", 1)
+        db.insert("cities", null, contentValues)*/
+
+        contentValues.put("region_id", 6)
+        contentValues.put("name", "Могилёв")
+        contentValues.put("description",  "")
+        contentValues.put("image", "doroga.jpg")
+        contentValues.put("likes", 0)
+        contentValues.put("lat", "53.90516563333846")
+        contentValues.put("lon", "30.337704710084417")
+        contentValues.put("is_car", 1)
+        contentValues.put("is_train", 1)
+        contentValues.put("is_bus", 1)
+        contentValues.put("is_minibus", 1)
         db.insert("cities", null, contentValues)
+        contentValues.clear()
 
         db.close()
         return 1
@@ -172,7 +213,7 @@ class DatabaseHandler(context: Context) :
     fun addPlace(): Long {
         val db = this.writableDatabase
         val contentValues = ContentValues()
-        contentValues.put("tag_id", "[2,3,5]")
+        /*contentValues.put("tag_id", "[2,3,5]")
         contentValues.put("city_id", 1)
         contentValues.put("name", "Верхний город")
         contentValues.put(
@@ -187,19 +228,64 @@ class DatabaseHandler(context: Context) :
         contentValues.put("lat", "53.902976971817786")
         contentValues.put("lon", "27.553953868508213")
         contentValues.put("price", 0)
+        db.insert("places", null, contentValues)*/
 
+        contentValues.put("tag_id", "[2,6]")
+        contentValues.put("city_id", 8)
+        contentValues.put("name", "Драматический театр")
+        contentValues.put(
+            "description",
+            "Из губернаторской ложи этого театра игрой актеров любовался сам император Николай II во время пребывания ставки царя в Могилеве. Сегодня Могилевский драматический театр – одна из самых известных достопримечательностей города. Здание, построенное в 1886-1888 годах в неорусском стиле из красного кирпича, расположено в историческом центре города, на Театральной Площади.\n" +
+                    "\n" +
+                    "Зал драмтеатра – уменьшенная копия Варшавского малого театра, отделанная  резным деревом, лепниной и бархатом. Обратите внимание на главную люстру театра – она весит больше двух тонн и горит тремя сотнями лампочек. На входе в театр вас встретит скульптура «Дама с собачкой» – сестра-близнец минской скульптуры авторства Владимира Жбанова, установленной рядом с Комаровским рынком."
+        )
+        contentValues.put("image", "doroga.jpg")
+        contentValues.put("lat", "53.89773")
+        contentValues.put("lon", "30.33282")
+        contentValues.put("price", 10)
         db.insert("places", null, contentValues)
+        contentValues.clear()
 
+        contentValues.put("tag_id", "[2,3,5]")
+        contentValues.put("city_id", 8)
+        contentValues.put("name", "Свято-Никольский монастырь")
+        contentValues.put(
+            "description",
+            "Свято-Никольский монастырь – один из главных православных центров Могилева и Могилевской области. Одно из зданий монастырского комплекса – Свято-Никольский собор 1669-1672 годов постройки – включено ЮНЕСКО в реестр наиболее ценных сооружений Европы в стиле барокко. В комплекс также входят Онуфриевский храм 1798 года, колокольня и церковный дом для паломников. В советский период высокохудожественные фресковые росписи стерли цементным раствором. Чудом остался только центральный иконостас Свято-Никольского собора – его стоит увидеть своими глазами."
+        )
+        contentValues.put("image", "doroga.jpg")
+        contentValues.put("lat", "53.89379")
+        contentValues.put("lon", "30.34585")
+        contentValues.put("price", 0)
+        db.insert("places", null, contentValues)
+        contentValues.clear()
+
+        contentValues.put("tag_id", "[2,3,5]")
+        contentValues.put("city_id", 8)
+        contentValues.put("name", "Городская ратуша")
+        contentValues.put(
+            "description",
+            "С обзорной площадки этой башни городским пейзажем любовались Екатерина II и австрийский император Иосиф II. И сегодня отсюда открывается панорамный вид на Заднепровье и живописную излучину главной водной артерии города – Днепра. А через панорамный бинокль – и на весь Могилев. Восьмигранное здание каменной ратуши  высотой 46 метров на Торговой площади (нынешней Площади Славы) было построено в 1679 году. С тех пор оно разрушалось и восстанавливалось много раз." +
+                    "В последний раз ратуша была восстановлена  в 2008 году, став местом притяжения для местных и туристов. Могилевчане устраивают здесь свадебные фотосессии, а туристы едут в музей истории города, экспозиционные залы которого занимают два этажа. В ратуше есть две уникальные вещи: башенные часы, механизм которых приводится в действие тяжелыми гирями, и механическая фигурка мальчика-горниста Могислава, как его зовут местные. Трижды в день Могислав трубит фанфару на балконе ратуши: в 12.00, 20.00 и в момент, когда в городе садится солнце. И это – must see в Могилеве."
+        )
+        contentValues.put("image", "doroga.jpg")
+        contentValues.put("lat", "53.89455")
+        contentValues.put("lon", "30.33195")
+        contentValues.put("price", 0)
+        db.insert("places", null, contentValues)
+        contentValues.clear()
 
         db.close()
         return 1
     }
 
     @SuppressLint("Recycle")
-    fun viewPlace(): List<PlacesModelClass> {
+    fun viewPlace(sort: Int, priceMin: Int, priceMax: Int): List<PlacesModelClass> {
         val empList: ArrayList<PlacesModelClass> = ArrayList()
+        val sortStr = if (sort == 0) "cities.name" else "places.price"
         val selectQuery =
-            "SELECT places.id, tag_id, cities.name as city_name, places.name, places.description, places.image, places.lat, places.lon, places.price FROM places left join cities on places.city_id = cities.id order by cities.name"
+            "SELECT places.id, tag_id, cities.name AS city_name, places.name, places.description, places.image, places.lat, places.lon, places.price FROM places LEFT JOIN cities ON places.city_id = cities.id WHERE places.price >= $priceMin AND places.price <= $priceMax ORDER BY $sortStr"
+
         val db = this.readableDatabase
         var cursor: Cursor? = null
         try {
@@ -220,6 +306,16 @@ class DatabaseHandler(context: Context) :
 
         if (cursor.moveToFirst()) {
             do {
+                val tagIds = cursor.getString(cursor.getColumnIndex("tag_id")).removeSurrounding("[", "]").split(",").map { it.toInt() }
+
+                var check = false
+                for (tagId in tagIds)
+                    for (e in viewTag(true))
+                        if (tagId == e.tagId) check = true
+
+
+                if (!check) continue
+
                 placeId = cursor.getInt(cursor.getColumnIndex("id"))
                 placeTagId = cursor.getString(cursor.getColumnIndex("tag_id"))
                 placeCityName = cursor.getString(cursor.getColumnIndex("city_name"))

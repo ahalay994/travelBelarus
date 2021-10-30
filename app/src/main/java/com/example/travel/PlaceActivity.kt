@@ -52,6 +52,11 @@ class PlaceActivity : AppCompatActivity() {
             startActivity(placeIntent)
         }
 
+        binding.fabBus.setOnClickListener { view ->
+            val placeIntent = Intent(this, BusActivity::class.java)
+            startActivity(placeIntent)
+        }
+
         binding.fab.setOnClickListener {
             if (binding.fab.isExpanded) {
                 closeFabs()

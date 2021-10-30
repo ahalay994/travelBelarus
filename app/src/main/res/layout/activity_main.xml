@@ -69,6 +69,7 @@
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@+id/textView"
+            app:selectionRequired="true"
             app:singleSelection="true">
 
             <com.google.android.material.button.MaterialButton
@@ -118,7 +119,6 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:text="0 BYN - 150 BYN"
             android:textColor="@color/white"
             android:textSize="20sp"
             app:layout_constraintEnd_toEndOf="parent"
@@ -133,8 +133,6 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
             android:stepSize="1.0"
-            android:valueFrom="0.0"
-            android:valueTo="150.0"
             app:haloColor="@color/white"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
@@ -142,8 +140,7 @@
             app:thumbColor="#673ab7"
             app:tickColor="@color/white"
             app:tickColorInactive="@color/white_traspartent"
-            app:trackColorActive="@color/teal_700"
-            app:values="@array/initial_slider_values" />
+            app:trackColorActive="@color/teal_700" />
 
         <com.google.android.material.button.MaterialButton
             style="@style/WhiteOutlinedButton"

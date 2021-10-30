@@ -4,7 +4,6 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.location.Address
 import android.location.Geocoder
@@ -12,32 +11,27 @@ import android.location.Location
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Build
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.util.Log
 import android.view.View
 import androidx.annotation.RequiresApi
+import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import com.example.travel.adapters.TrainAdapter
+import com.example.travel.adapters.BusAdapter
 import com.example.travel.data.CurrentCity
 import com.example.travel.data.yandex.rasp.Search
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
-import kotlinx.android.synthetic.main.activity_train.*
+import kotlinx.android.synthetic.main.activity_bus.*
 import okhttp3.*
 import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.*
-import android.location.LocationManager
-import android.provider.Settings
 
-import android.app.AlertDialog
-
-
-class TrainActivity : AppCompatActivity() {
+class BusActivity : AppCompatActivity() {
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private val client = OkHttpClient()
 
@@ -45,7 +39,7 @@ class TrainActivity : AppCompatActivity() {
     @SuppressLint("MissingPermission")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_train)
+        setContentView(R.layout.activity_bus)
 
         /*** Тут мы получим город и текущие координаты ***/
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
@@ -56,85 +50,12 @@ class TrainActivity : AppCompatActivity() {
             return
         }
 
-        checkLocationServiceEnabled()
-
-//        if (!isGeoDisabled()) {
-//            startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
-//        }
-
-        initWithPermission()
-        errorButton.setOnClickListener {
-            initWithPermission()
-        }
-    }
-
-    private var locationManager: LocationManager? = null
-    var geolocationEnabled = false
-
-    /**
-     * Проверяет включены ли соответствующие провайдеры локации
-     */
-    private fun checkLocationServiceEnabled(): Boolean {
-        locationManager = getSystemService(LOCATION_SERVICE) as LocationManager
-        try {
-            geolocationEnabled = locationManager!!.isProviderEnabled(LocationManager.GPS_PROVIDER)
-        } catch (ex: Exception) {
-        }
-        return buildAlertMessageNoLocationService(geolocationEnabled)
-    }
-
-    /**
-     * Показываем диалог и переводим пользователя к настройкам геолокации
-     */
-    private fun buildAlertMessageNoLocationService(network_enabled: Boolean): Boolean {
-        val msg = if (!network_enabled) resources.getString(R.string.msg_switch_network) else null
-        if (msg != null) {
-            val builder: AlertDialog.Builder = AlertDialog.Builder(this)
-            builder.setCancelable(false)
-                .setMessage(msg)
-                .setPositiveButton("Включить",) { dialog, id -> startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)) }
-            val alert: AlertDialog = builder.create()
-            alert.show()
-            return true
-        }
-        return false
-    }
-
-
-    /*private fun isGeoDisabled(): Boolean {
-        val mLocationManager = applicationContext.getSystemService(LOCATION_SERVICE) as LocationManager
-        val mIsGPSEnabled = mLocationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
-        val mIsNetworkEnabled = mLocationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
-        return !mIsGPSEnabled && !mIsNetworkEnabled
-    }*/
-
-
-    @RequiresApi(Build.VERSION_CODES.N)
-    private fun initWithPermission() {
-        listView.visibility = View.VISIBLE
-        progressBar.visibility = View.VISIBLE
-        if (!isNetworkConnected()) {
-            errorContainer.visibility = View.VISIBLE
-            progressBar.visibility = View.INVISIBLE
-            listView.visibility = View.INVISIBLE
-            errorText.text = "Нет подключения к интернету!"
-        } else {
-            errorContainer.visibility = View.GONE
-            progressBar.visibility = View.VISIBLE
-            listView.visibility = View.VISIBLE
-            init()
-        }
-    }
-
-    @SuppressLint("MissingPermission")
-    private fun init() {
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
         fusedLocationClient.lastLocation
             .addOnSuccessListener { location ->
                 if (location != null) {
                     val gcd = Geocoder(this, Locale.getDefault())
-                    val addresses: List<Address> =
-                        gcd.getFromLocation(location.latitude, location.longitude, 1)
+                    val addresses: List<Address> = gcd.getFromLocation(location.latitude, location.longitude, 1)
                     if (addresses.isNotEmpty()) {
                         // Вызываем функцию с получением текущего города
                         getCurrentCity(addresses[0])
@@ -144,6 +65,7 @@ class TrainActivity : AppCompatActivity() {
                     /*** Тут мы получили город и текущие координаты ***/
                 }
             }
+
     }
 
     private fun getLink(method: String, params: String): String {
@@ -174,8 +96,7 @@ class TrainActivity : AppCompatActivity() {
                     val currentCity = mapper.readValue<CurrentCity>(response.body!!.string())
                     val sdf = SimpleDateFormat("yyyy-MM-dd")
                     val currentDate = sdf.format(Date())
-                    requestGetRoutes(getLink("search", "from=${currentCity.code}&to=c158&lang=ru_RU&transport_types=train,suburban&transfers=true&date=${currentDate}"))
-//                    requestGetRoutes(getLink("search", "from=${currentCity.code}&to=c158&lang=ru_RU&transport_types=train,suburban&date=${currentDate}"))
+                    requestGetRoutes(getLink("search", "from=${currentCity.code}&to=c158&lang=ru_RU&transport_types=bus&transfers=true&date=${currentDate}"))
                 }
             }
         })
@@ -201,7 +122,7 @@ class TrainActivity : AppCompatActivity() {
                     val segments = search.segments
 
                     runOnUiThread {
-                        val adapter = TrainAdapter(this@TrainActivity, segments!!)
+                        val adapter = BusAdapter(this@BusActivity, segments!!)
                         listView.adapter = adapter
 
                         listView.visibility = View.VISIBLE

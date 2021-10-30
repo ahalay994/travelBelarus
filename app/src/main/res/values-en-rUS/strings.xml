@@ -21,4 +21,7 @@
 
     <string name="action_settings">Setting</string>
     <string name="action_exit">Exit</string>
+    <string name="msg_switch_network">msg_switch_network</string>
+
+    <style name="msg_switch_network">GPS ON</style>
 </resources>
