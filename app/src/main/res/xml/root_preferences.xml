@@ -1,35 +1,37 @@
 <PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
 
-    <PreferenceCategory app:title="@string/messages_header">
-
-        <EditTextPreference
-            app:key="signature"
-            app:title="@string/signature_title"
-            app:useSimpleSummaryProvider="true" />
+    <PreferenceCategory
+        app:title="@string/messages_header"
+        app:iconSpaceReserved="false">
 
         <ListPreference
-            app:defaultValue="reply"
-            app:entries="@array/reply_entries"
-            app:entryValues="@array/reply_values"
-            app:key="reply"
-            app:title="@string/reply_title"
-            app:useSimpleSummaryProvider="true" />
+            app:defaultValue="@string/lang_ru"
+            app:entries="@array/language_array"
+            app:entryValues="@array/language_array"
+            app:key="appLanguage"
+            app:title="@string/language_array_title"
+            app:useSimpleSummaryProvider="true"
+            app:icon="@drawable/language"
+            app:iconSpaceReserved="false"/>
+
+        <ListPreference
+            app:defaultValue="@string/theme_night"
+            app:entries="@array/theme_array"
+            app:entryValues="@array/theme_array"
+            app:key="appTheme"
+            app:title="@string/theme_array_title"
+            app:useSimpleSummaryProvider="true"
+            app:icon="@drawable/themes"
+            app:iconSpaceReserved="false"/>
 
     </PreferenceCategory>
 
-    <PreferenceCategory app:title="@string/sync_header">
+<!--    <PreferenceCategory app:title="@string/sync_header">-->
 
-        <SwitchPreferenceCompat
-            app:key="sync"
-            app:title="@string/sync_title" />
+<!--        <SwitchPreferenceCompat-->
+<!--            app:key="sync"-->
+<!--            app:title="@string/change_theme" />-->
 
-        <SwitchPreferenceCompat
-            app:dependency="sync"
-            app:key="attachment"
-            app:summaryOff="@string/attachment_summary_off"
-            app:summaryOn="@string/attachment_summary_on"
-            app:title="@string/attachment_title" />
-
-    </PreferenceCategory>
+<!--    </PreferenceCategory>-->
 
 </PreferenceScreen>

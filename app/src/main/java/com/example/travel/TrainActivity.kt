@@ -35,9 +35,15 @@ import android.location.LocationManager
 import android.provider.Settings
 
 import android.app.AlertDialog
+import android.view.Menu
+import android.view.MenuItem
 
 
 class TrainActivity : AppCompatActivity() {
+    companion object {
+        const val NAME = "name"
+    }
+
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private val client = OkHttpClient()
 
@@ -46,6 +52,9 @@ class TrainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_train)
+
+        supportActionBar!!.setDisplayHomeAsUpEnabled(true)
+        supportActionBar!!.title = intent.getStringExtra(MapActivity.NAME)
 
         /*** Тут мы получим город и текущие координаты ***/
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
@@ -235,5 +244,20 @@ class TrainActivity : AppCompatActivity() {
         val networkCapabilities = connectivityManager.getNetworkCapabilities(activeNetwork)
         //4
         return networkCapabilities != null && networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+    }
+
+    override fun onCreateOptionsMenu(menu: Menu): Boolean {
+        menuInflater.inflate(R.menu.menu_top_place, menu)
+        return true
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        return when (item.itemId) {
+            android.R.id.home -> {
+                onBackPressed()
+                return true
+            }
+            else -> super.onOptionsItemSelected(item)
+        }
     }
 }

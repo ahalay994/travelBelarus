@@ -4,7 +4,8 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".WelcomeActivity">
+    tools:context=".WelcomeActivity"
+    style="@style/Theme.MaterialComponents.Light.NoActionBar">
 
     <com.google.android.material.button.MaterialButton
         android:id="@+id/buttonNext"
@@ -12,6 +13,7 @@
         android:layout_height="wrap_content"
         android:text="Далее"
         android:textSize="14sp"
+        android:backgroundTint="@color/purple_50"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         android:layout_marginBottom="20dp"

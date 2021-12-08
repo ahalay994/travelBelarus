@@ -11,12 +11,15 @@ import android.graphics.drawable.Drawable
 import android.location.Location
 import android.os.Bundle
 import android.util.Log
+import android.view.Menu
+import android.view.MenuItem
 import android.view.View
 import android.widget.Toast
 import androidx.annotation.DrawableRes
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.core.content.ContextCompat
+import com.example.travel.helpers.DatabaseHandler
 import com.example.travel.helpers.GlobalHelper
 import com.mapbox.api.directions.v5.models.Bearing
 import com.mapbox.api.directions.v5.models.DirectionsRoute
@@ -70,6 +73,7 @@ import kotlinx.android.synthetic.main.activity_map.*
 
 class MapActivity : AppCompatActivity() {
     companion object {
+        const val NAME = "name"
         const val LAT = "lat"
         const val LON = "lon"
         private const val BUTTON_ANIMATION_DURATION = 1500L
@@ -267,6 +271,9 @@ class MapActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_map)
 
+        supportActionBar!!.setDisplayHomeAsUpEnabled(true)
+        supportActionBar!!.title = intent.getStringExtra(NAME)
+
         val lat = intent.getStringExtra(LAT)
         val lon = intent.getStringExtra(LON)
 
@@ -382,65 +389,6 @@ class MapActivity : AppCompatActivity() {
         }
 
         mapboxMap = mapView.getMapboxMap()
-        ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-        /*
-        val mapsTilesetDescriptor = offlineManager?.createTilesetDescriptor(
-            TilesetDescriptorOptions.Builder()
-                .styleURI(Style.MAPBOX_STREETS)
-                .minZoom(15)
-                .maxZoom(16)
-                .build()
-        )
-
-        val navTilesetDescriptor = mapboxNavigation.tilesetDescriptorFactory.getLatest()
-
-        val pointFirst = Point.fromLngLat(27.71402866991587, 53.96800608088429)
-        val pointSecond = Point.fromLngLat(27.392335275633705, 53.83814912274236)
-        val polygon: Polygon = Polygon.fromLngLats(listOf(listOf(pointFirst, pointSecond)))
-
-        val polygonFeatureJson =
-            """
-            {
-                "type": "Feature",
-                "properties": {},
-                "geometry": {
-                    "type": "Polygon",
-                    "coordinates": [
-                        [
-                            [27.500334033469958,53.867920268096356],
-                            [27.63680481706351,53.871462814516555],
-                            [27.628908394643876,53.92456501438775],
-                            [27.502393970104944,53.92860812977665]
-                        ]
-                    ]
-                }
-            }
-            """
-
-        val singleFeature = Feature.fromJson(polygonFeatureJson)
-        val polygonJSON = singleFeature.geometry() as Polygon?
-
-        val tileRegionLoadOptions = TileRegionLoadOptions.Builder()
-            .geometry(polygonJSON)
-            .descriptors(listOf(mapsTilesetDescriptor, navTilesetDescriptor))
-            .build()*/
-        // TODO ERROR
-        /*val tileRegionCancelable = tileStore.loadTileRegion(
-            "TOKYO",
-            tileRegionLoadOptions,
-            { progress ->
-//                Log.i("progress", progress.toString())
-            }
-        ) { expected ->
-            if (expected.isValue) {
-                // Tile region download finishes successfully
-//                Log.i("download", "Tile region download finishes successfully")
-            } else {
-//                Log.i("download", "Error")
-                // Handle errors that occurred during the tile region download
-            }
-        }*/
-        ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     }
 
     override fun onStart() {
@@ -657,6 +605,21 @@ class MapActivity : AppCompatActivity() {
             drawable.setBounds(0, 0, canvas.width, canvas.height)
             drawable.draw(canvas)
             bitmap
+        }
+    }
+
+    override fun onCreateOptionsMenu(menu: Menu): Boolean {
+        menuInflater.inflate(R.menu.menu_top_place, menu)
+        return true
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        return when (item.itemId) {
+            android.R.id.home -> {
+                onBackPressed()
+                return true
+            }
+            else -> super.onOptionsItemSelected(item)
         }
     }
 }

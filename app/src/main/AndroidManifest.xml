@@ -27,6 +27,9 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Travel">
         <activity
+            android:name=".MinibusActivity"
+            android:exported="false" />
+        <activity
             android:name=".BusActivity"
             android:exported="true" />
         <activity
@@ -38,7 +41,6 @@
         <activity
             android:name=".PlaceActivity"
             android:exported="true"
-            android:label="@string/title_activity_place"
             android:theme="@style/Theme.Travel.NoActionBar" />
         <activity
             android:name=".PlacesActivity"
@@ -51,11 +53,12 @@
             android:exported="true"
             android:label="@string/title_activity_settings" />
         <activity
-            android:name=".WelcomeActivity"
+            android:name=".MainActivity"
             android:exported="true" />
         <activity
-            android:name=".MainActivity"
-            android:exported="true">
+            android:name=".WelcomeActivity"
+            android:exported="true"
+            android:theme="@style/Theme.MaterialComponents.NoActionBar">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 

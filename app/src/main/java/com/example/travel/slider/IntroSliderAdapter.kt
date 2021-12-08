@@ -22,7 +22,7 @@ class IntroSliderAdapter(private val introSlides: List<IntroSlide>)
     }
 
     override fun onBindViewHolder(holder: IntroSlideViewHolder, position: Int) {
-        holder.bind(introSlides[position])
+        holder.bind(introSlides[position], holder)
     }
 
     override fun getItemCount(): Int {
@@ -31,12 +31,10 @@ class IntroSliderAdapter(private val introSlides: List<IntroSlide>)
 
     inner class IntroSlideViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         private val textTitle = view.findViewById<TextView>(R.id.textTitle)
-        private val textDescription = view.findViewById<TextView>(R.id.textDescription)
         private val imageIcon = view.findViewById<ImageView>(R.id.imageSlideIcon)
 
-        fun bind(introSlide: IntroSlide) {
-            textTitle.text = introSlide.title
-            textDescription.text = introSlide.description
+        fun bind(introSlide: IntroSlide, holder: IntroSlideViewHolder) {
+            textTitle.text = holder.itemView.context.getString(introSlide.title)
             imageIcon.setImageResource(introSlide.icon)
         }
     }

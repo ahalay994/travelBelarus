@@ -83,11 +83,13 @@ class DatabaseHandler(context: Context) :
         }
         var tagId: Int
         var tagName: String
+        var tagNameEn: String
         var tagActive: Int
         if (cursor.moveToFirst()) {
             do {
                 tagId = cursor.getInt(cursor.getColumnIndex("id"))
                 tagName = cursor.getString(cursor.getColumnIndex("name"))
+                tagNameEn = cursor.getString(cursor.getColumnIndex("name_en"))
                 tagActive = cursor.getInt(cursor.getColumnIndex("is_active"))
                 val emp = TagsModelClass(tagId = tagId, tagName = tagName, tagActive = tagActive)
                 empList.add(emp)
@@ -96,7 +98,15 @@ class DatabaseHandler(context: Context) :
 
 //        addCity()
 //        addPlace()
+//        addEnglish()
+
         return empList
+    }
+
+    fun addEnglish() {
+        val db = this.readableDatabase
+
+        db?.execSQL("ALTER TABLE cities ADD COLUMN minibus_text_en TEXT DEFAULT ''")
     }
 
     //method to insert data
@@ -130,9 +140,7 @@ class DatabaseHandler(context: Context) :
         return 1
     }
 
-    fun updateTagById(id: Int,
-                   name: String,
-                   is_active: Int): Int {
+    fun updateTagById(id: Int, name: String, is_active: Int): Int {
         val cv = ContentValues()
         cv.put("name", name)
         cv.put("is_active", is_active)
@@ -194,7 +202,7 @@ class DatabaseHandler(context: Context) :
 
         contentValues.put("region_id", 6)
         contentValues.put("name", "Могилёв")
-        contentValues.put("description",  "")
+        contentValues.put("description", "")
         contentValues.put("image", "doroga.jpg")
         contentValues.put("likes", 0)
         contentValues.put("lat", "53.90516563333846")
@@ -284,7 +292,7 @@ class DatabaseHandler(context: Context) :
         val empList: ArrayList<PlacesModelClass> = ArrayList()
         val sortStr = if (sort == 0) "cities.name" else "places.price"
         val selectQuery =
-            "SELECT places.id, tag_id, cities.name AS city_name, places.name, places.description, places.image, places.lat, places.lon, places.price FROM places LEFT JOIN cities ON places.city_id = cities.id WHERE places.price >= $priceMin AND places.price <= $priceMax ORDER BY $sortStr"
+            "SELECT places.id, tag_id, cities.name AS city_name, cities.name_en AS city_name_en, cities.is_car, cities.is_train, cities.is_bus, cities.is_minibus, cities.minibus_text, cities.minibus_text_en, places.name, places.name_en, places.description, places.description_en, places.image, places.lat, places.lon, places.price, places.visited FROM places LEFT JOIN cities ON places.city_id = cities.id WHERE places.price >= $priceMin AND places.price <= $priceMax ORDER BY $sortStr"
 
         val db = this.readableDatabase
         var cursor: Cursor? = null
@@ -297,16 +305,28 @@ class DatabaseHandler(context: Context) :
         var placeId: Int
         var placeTagId: String
         var placeCityName: String
+        var placeCityNameEn: String
+        var placeIsCar: Int
+        var placeIsTrain: Int
+        var placeIsBus: Int
+        var placeIsMinibus: Int
+        var placeMinibusText: String
+        var placeMinibusTextEn: String
         var placeName: String
+        var placeNameEn: String
         var placeDescription: String
+        var placeDescriptionEn: String
         var placeImage: String
         var placeLat: String
         var placeLon: String
         var placePrice: Float
+        var placeVisited: Int
 
         if (cursor.moveToFirst()) {
             do {
-                val tagIds = cursor.getString(cursor.getColumnIndex("tag_id")).removeSurrounding("[", "]").split(",").map { it.toInt() }
+                val tagIds =
+                    cursor.getString(cursor.getColumnIndex("tag_id")).removeSurrounding("[", "]")
+                        .split(",").map { it.toInt() }
 
                 var check = false
                 for (tagId in tagIds)
@@ -319,22 +339,42 @@ class DatabaseHandler(context: Context) :
                 placeId = cursor.getInt(cursor.getColumnIndex("id"))
                 placeTagId = cursor.getString(cursor.getColumnIndex("tag_id"))
                 placeCityName = cursor.getString(cursor.getColumnIndex("city_name"))
+                placeCityNameEn = cursor.getString(cursor.getColumnIndex("city_name_en"))
+                placeIsCar = cursor.getInt(cursor.getColumnIndex("is_car"))
+                placeIsTrain = cursor.getInt(cursor.getColumnIndex("is_train"))
+                placeIsBus = cursor.getInt(cursor.getColumnIndex("is_bus"))
+                placeIsMinibus = cursor.getInt(cursor.getColumnIndex("is_minibus"))
+                placeMinibusText = cursor.getString(cursor.getColumnIndex("minibus_text"))
+                placeMinibusTextEn = cursor.getString(cursor.getColumnIndex("minibus_text_en"))
                 placeName = cursor.getString(cursor.getColumnIndex("name"))
+                placeNameEn = cursor.getString(cursor.getColumnIndex("name_en"))
                 placeDescription = cursor.getString(cursor.getColumnIndex("description"))
+                placeDescriptionEn = cursor.getString(cursor.getColumnIndex("description_en"))
                 placeImage = cursor.getString(cursor.getColumnIndex("image"))
                 placeLat = cursor.getString(cursor.getColumnIndex("lat"))
                 placeLon = cursor.getString(cursor.getColumnIndex("lon"))
                 placePrice = cursor.getFloat(cursor.getColumnIndex("price"))
+                placeVisited = cursor.getInt(cursor.getColumnIndex("visited"))
                 val emp = PlacesModelClass(
                     id = placeId,
                     tag_id = placeTagId,
                     city_name = placeCityName,
+                    city_name_en = placeCityNameEn,
+                    is_car = placeIsCar,
+                    is_train = placeIsTrain,
+                    is_bus = placeIsBus,
+                    is_minibus = placeIsMinibus,
+                    minibus_text = placeMinibusText,
+                    minibus_text_en = placeMinibusTextEn,
                     name = placeName,
+                    name_en = placeNameEn,
                     description = placeDescription,
+                    description_en = placeDescriptionEn,
                     image = placeImage,
                     lat = placeLat,
                     lon = placeLon,
-                    price = placePrice
+                    price = placePrice,
+                    visited = placeVisited
                 )
                 empList.add(emp)
             } while (cursor.moveToNext())
@@ -344,14 +384,15 @@ class DatabaseHandler(context: Context) :
 
     @SuppressLint("Recycle")
     fun viewPlaceById(id: Int): PlacesModelClass {
-        val selectQuery = "SELECT places.id, tag_id, cities.name as city_name, places.name, places.description, places.image, places.lat, places.lon, places.price FROM places left join cities on places.city_id = cities.id where places.id = $id order by cities.name"
+        val selectQuery =
+            "SELECT places.id, tag_id, cities.name as city_name, cities.name_en as city_name_en, cities.is_car, cities.is_train, cities.is_bus, cities.is_minibus, cities.minibus_text, cities.minibus_text_en, places.name, places.name_en, places.description, places.description_en, places.image, places.lat, places.lon, places.price, places.visited FROM places left join cities on places.city_id = cities.id where places.id = $id order by cities.name"
         val db = this.readableDatabase
         var cursor: Cursor? = null
         try {
             cursor = db.rawQuery(selectQuery, null)
         } catch (e: SQLiteException) {
             db.execSQL(selectQuery)
-            return PlacesModelClass(0, "", "", "", "", "", "", "", 0.0F)
+            return PlacesModelClass(0, "", "", "", 0, 0, 0, 0, "", "","", "", "", "", "", "", "", 0.0F, 0)
         }
 
         cursor?.moveToFirst();
@@ -360,18 +401,37 @@ class DatabaseHandler(context: Context) :
             cursor.getInt(cursor.getColumnIndex("id")),
             cursor.getString(cursor.getColumnIndex("tag_id")),
             cursor.getString(cursor.getColumnIndex("city_name")),
+            cursor.getString(cursor.getColumnIndex("city_name_en")),
+            cursor.getInt(cursor.getColumnIndex("is_car")),
+            cursor.getInt(cursor.getColumnIndex("is_train")),
+            cursor.getInt(cursor.getColumnIndex("is_bus")),
+            cursor.getInt(cursor.getColumnIndex("is_minibus")),
+            cursor.getString(cursor.getColumnIndex("minibus_text")),
+            cursor.getString(cursor.getColumnIndex("minibus_text_en")),
             cursor.getString(cursor.getColumnIndex("name")),
+            cursor.getString(cursor.getColumnIndex("name_en")),
             cursor.getString(cursor.getColumnIndex("description")),
+            cursor.getString(cursor.getColumnIndex("description_en")),
             cursor.getString(cursor.getColumnIndex("image")),
             cursor.getString(cursor.getColumnIndex("lat")),
             cursor.getString(cursor.getColumnIndex("lon")),
-            cursor.getFloat(cursor.getColumnIndex("price"))
+            cursor.getFloat(cursor.getColumnIndex("price")),
+            cursor.getInt(cursor.getColumnIndex("visited"))
         )
         return empList
     }
 
-    fun openConnect(): SQLiteDatabase? {
-        val db = this.writableDatabase
-        return db;
+    fun updateVisited(id: Int, status: Boolean): Int {
+        val cv = ContentValues()
+        var visited = 0
+        if (status) {
+            visited = 1;
+        }
+        cv.put("visited", visited)
+
+        val whereclause = "id=?"
+        val whereargs = arrayOf(id.toString())
+        val query = this.writableDatabase.update("places", cv, whereclause, whereargs)
+        return query
     }
 }

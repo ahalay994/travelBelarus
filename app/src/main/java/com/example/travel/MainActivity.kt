@@ -1,8 +1,10 @@
 package com.example.travel
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.content.Intent
 import android.content.res.ColorStateList
+import android.content.res.Configuration
 import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
 import android.util.Log
@@ -15,18 +17,30 @@ import android.widget.Toast
 import androidx.appcompat.app.ActionBar
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.preference.ListPreference
 import com.example.travel.`interface`.OnBottomSheetCallbacks
 import com.example.travel.adapters.PlacesAdapter
 import com.example.travel.helpers.DatabaseHandler
 import com.example.travel.helpers.SharedPreference
 import com.example.travel.models.PlacesModelClass
 import com.example.travel.models.TagsModelClass
+import com.example.travel.utility.*
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.chip.Chip
 import com.google.android.material.slider.RangeSlider
 import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.android.synthetic.main.fragment_window.viewList
+import java.util.Locale
+
+import com.example.travel.*
+import android.content.res.Resources
+import android.os.Build
+import androidx.annotation.RequiresApi
+import androidx.appcompat.app.AppCompatDelegate
+
+import com.example.travel.*
+import com.example.travel.*
 
 class MainActivity : AppCompatActivity() {
     final val PREF_SORT = "SORT";
@@ -36,9 +50,8 @@ class MainActivity : AppCompatActivity() {
     private var listener: OnBottomSheetCallbacks? = null
     var optionsMenu: Menu? = null
     var actionbar: ActionBar? = null
-    var VIEW_TYPE = 0
 
-    var filerTags:MutableMap<Int, Int> = HashMap()
+    var filerTags: MutableMap<Int, Int> = HashMap()
     var filterSort = 0
     var filterPrice = arrayListOf<Int>(0, 0)
 
@@ -46,7 +59,11 @@ class MainActivity : AppCompatActivity() {
 
     private var mBottomSheetBehavior: BottomSheetBehavior<View?>? = null
 
+    @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
+        val localeService = LocaleService
+        localeService.updateBaseContextLocale(this)
+
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
@@ -56,14 +73,7 @@ class MainActivity : AppCompatActivity() {
         if (actionbar !== null) {
             actionbar!!.setHomeAsUpIndicator(R.drawable.ic_baseline_close_24)
         }
-        actionbar!!.setBackgroundDrawable(
-            ColorDrawable(
-                ContextCompat.getColor(
-                    this,
-                    R.color.purple_500
-                )
-            )
-        )
+        supportActionBar!!.title = getString(R.string.app_name)
         //removing the shadow from the action bar
         supportActionBar?.elevation = 0f
 
@@ -220,20 +230,10 @@ class MainActivity : AppCompatActivity() {
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
-            R.id.action_view -> {
-                if (VIEW_TYPE == 0) {
-                    viewList.numColumns = 2
-                    VIEW_TYPE = 1
-                    getPlaces()
-                } else {
-                    viewList.numColumns = 1
-                    VIEW_TYPE = 0
-                    getPlaces()
-                }
-                true
-            }
             R.id.action_settings -> {
-                Intent(applicationContext, ConfigActivity::class.java).also {
+                closeBottomSheet()
+                supportActionBar?.elevation = 0f
+                Intent(applicationContext, SettingsActivity::class.java).also {
                     startActivity(it)
                 }
                 true
@@ -247,7 +247,7 @@ class MainActivity : AppCompatActivity() {
                 true
             }
             R.id.action_exit -> {
-//                Toast.makeText(applicationContext, "click on exit", Toast.LENGTH_LONG).show()
+                finish()
                 return true
             }
             else -> super.onOptionsItemSelected(item)
@@ -266,8 +266,11 @@ class MainActivity : AppCompatActivity() {
         val placeArrayId = Array(place.size) { "0" }
         val placeArrayTagId = Array(place.size) { "null" }
         val placeArrayCityId = Array(place.size) { "0" }
+        val placeArrayCityIdEn = Array(place.size) { "0" }
         val placeArrayName = Array(place.size) { "null" }
+        val placeArrayNameEn = Array(place.size) { "null" }
         val placeArrayDescription = Array(place.size) { "null" }
+        val placeArrayDescriptionEn = Array(place.size) { "null" }
         val placeArrayImage = Array(place.size) { "null" }
         val placeArrayLat = Array(place.size) { "null" }
         val placeArrayLon = Array(place.size) { "null" }
@@ -277,8 +280,11 @@ class MainActivity : AppCompatActivity() {
             placeArrayId[index] = e.id.toString()
             placeArrayTagId[index] = e.tag_id
             placeArrayCityId[index] = e.city_name
+            placeArrayCityIdEn[index] = e.city_name_en
             placeArrayName[index] = e.name
+            placeArrayNameEn[index] = e.name_en
             placeArrayDescription[index] = e.description
+            placeArrayDescriptionEn[index] = e.description_en
             placeArrayImage[index] = e.image
             placeArrayLat[index] = e.lat
             placeArrayLon[index] = e.lon
@@ -292,23 +298,21 @@ class MainActivity : AppCompatActivity() {
             placeArrayId,
             placeArrayTagId,
             placeArrayCityId,
+            placeArrayCityIdEn,
             placeArrayName,
+            placeArrayNameEn,
             placeArrayDescription,
+            placeArrayDescriptionEn,
             placeArrayImage,
             placeArrayLat,
             placeArrayLon,
-            placeArrayPrice,
-            VIEW_TYPE
+            placeArrayPrice
         )
         viewList.adapter = placesAdapter
 
         viewList.setOnItemClickListener(OnItemClickListener { parent, view, position, id ->
             moreCLick(PlaceActivity.ID, placeArrayId[position].toInt())
         })
-
-//        btnMore.setOnClickListener {
-//            moreCLick(PlaceActivity.ID, PlaceActivity.ID.toInt())
-//        }
 
     }
 
